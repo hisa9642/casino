@@ -2,22 +2,29 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Realistic Studio</title>
+    <title>8-LINE SLOT - Multiplay</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
         body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         
+        /* スマホ用ジョイスティック */
         #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
-        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.1); border-radius: 50%; z-index: 2000; display: none; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(0,0,0,0.2); border-radius: 50%; transform: translate(-50%, -50%); }
+        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 
+        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #000; background: rgba(255,255,255,0.7); padding: 5px 10px; font-size: 12px; border-radius: 5px; }
+
+        /* スロットUIのリサイズ対応 */
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
-        #ui.active { transform: scale(1); pointer-events: auto; }
-        .paytable { position: absolute; left: 20px; width: 180px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1.1rem; }
-        .pay-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 5px 0; }
-        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+        #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
         
+        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
+        .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
+        @media (max-width: 850px) { .paytable { display: none; } }
+        
+        .pay-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 5px 0; }
         #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; text-align: center; width: 100%; }
         .win-pop { color: #ff0000; font-size: 4rem; font-weight: bold; text-shadow: 0 0 20px #fff, 0 0 40px gold; animation: popIn 0.5s forwards, fadeOut 0.5s 2.5s forwards; margin: 10px; }
         @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
@@ -44,11 +51,12 @@
 <div id="crosshair"></div>
 <div id="win-effect-container"></div>
 <div id="three-canvas"></div>
+<div id="multi-status">P2P Connecting...</div>
 
 <div id="ui">
-    <div class="paytable" id="pay-list"></div>
     <div class="slot-container" id="main-container">
-        <div style="width:100%; display:flex; justify-content:space-between; padding:10px;">
+        <div class="paytable" id="pay-list"></div>
+        <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
             <button onclick="resetGame()" style="cursor:pointer; background: #822; color: white; border: none; padding: 5px 15px; border-radius: 5px;">RESET</button>
             <button onclick="closeUI()" style="cursor:pointer; background: #444; color: white; border: none; padding: 5px 15px; border-radius: 5px;">EXIT</button>
         </div>
@@ -74,7 +82,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    // --- スロットシステム ---
+    // --- スロットロジック (維持) ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
     let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
     let isFever = false, isSuperFever = false, feverRounds = 0;
@@ -92,82 +100,93 @@
     function animate() { let m = false; [0,1,2].forEach(i => { if(speed[i] > 0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } }); if(m) requestAnimationFrame(animate); else if(stopping.every(s=>s)) check(); }
     async function check() { const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; let winCnt = 0, mults = []; lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); if(mults.length > 0) { const container = document.getElementById('win-effect-container'); let currentTotal = 1; for(let i=0; i<mults.length; i++) { currentTotal *= mults[i]; if(winCnt >= 2) { const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); } } const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } } else { if(isFever || isSuperFever) feverRounds--; } if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; saveGame(); }
 
-    // --- Three.js 空間構築 ---
+    // --- 3D 空間 (床と天井を灰色に) ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.getElementById('three-canvas').appendChild(renderer.domElement);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    dirLight.position.set(5, 10, 7);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-
-    // 壁：白地に細かい灰色のレンガ
-    const wallCanvas = document.createElement('canvas'); wallCanvas.width=512; wallCanvas.height=512;
-    const wctx = wallCanvas.getContext('2d');
-    wctx.fillStyle = '#ffffff'; wctx.fillRect(0,0,512,512);
-    wctx.strokeStyle = '#bbbbbb'; wctx.lineWidth = 1;
-    for(let i=0; i<32; i++) { // さらに細かく
-        const y = i * 16; wctx.beginPath(); wctx.moveTo(0, y); wctx.lineTo(512, y); wctx.stroke();
-        const offset = (i % 2) * 16;
-        for(let j=0; j<16; j++) { const x = j * 32 + offset; wctx.beginPath(); wctx.moveTo(x, y); wctx.lineTo(x, y+16); wctx.stroke(); }
-    }
-    const wallTex = new THREE.CanvasTexture(wallCanvas); wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping; wallTex.repeat.set(8, 2);
-    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex });
-
-    // 床：真っ黒な格子
-    const floorCanvas = document.createElement('canvas'); floorCanvas.width=512; floorCanvas.height=512;
-    const fctx = floorCanvas.getContext('2d');
-    fctx.fillStyle = '#050505'; fctx.fillRect(0,0,512,512);
-    fctx.strokeStyle = '#1a1a1a'; fctx.lineWidth = 2;
-    for(let i=0; i<16; i++){ fctx.beginPath(); fctx.moveTo(i*32, 0); fctx.lineTo(i*32, 512); fctx.stroke(); fctx.beginPath(); fctx.moveTo(0, i*32); fctx.lineTo(512, i*32); fctx.stroke(); }
-    const floorTex = new THREE.CanvasTexture(floorCanvas); floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(4, 8);
-    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex });
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), floorMat); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
+    // 床と天井を灰色に変更
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
     const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw1.position.set(-10, 0, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
     const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw2.position.set(10, 0, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
     const bw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); bw.position.set(0, 0, 30); bw.rotation.y = Math.PI; scene.add(bw);
     const fw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); fw.position.set(0, 0, -30); scene.add(fw);
 
-    // 天井
-    const ceilMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), ceilMat); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
-
     const machines = [];
     function createMachine(x, z) {
-        const group = new THREE.Group();
-        // 筐体メイン
-        const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.2 }));
-        body.position.y = 2; body.castShadow = true; group.add(body);
-        // モニター（発光）
-        const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.8), new THREE.MeshBasicMaterial({ color: 0x220000 }));
-        screen.position.set(0, 2.8, 0.61); group.add(screen);
-        // 操作テーブル
-        const table = new THREE.Mesh(new THREE.BoxGeometry(2, 0.15, 0.8), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-        table.position.set(0, 1.2, 0.6); table.rotation.x = -0.2; group.add(table);
-        // 装飾ランプ
-        const lamp = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 1.2), new THREE.MeshStandardMaterial({ color: 0x330000 }));
-        lamp.position.y = 4.15; group.add(lamp);
-
-        group.position.set(x, -4, z);
-        scene.add(group);
-        machines.push({ pos: new THREE.Vector3(x, -4, z), mesh: body });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+        body.position.set(x, -2, z); scene.add(body);
+        machines.push({ mesh: body });
     }
     for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    camera.position.set(0, -1, 15);
-    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0;
-    let isMobile = false, joyDir = {x:0, y:0};
+    // --- 名前と部屋の設定 & P2P ---
+    let myName = "", roomNum = "";
+    const peer = new Peer();
+    const otherPlayers = {};
+    const connections = {};
 
+    peer.on('open', id => {
+        myName = prompt("名前を入力してください", "Player") || "Player";
+        roomNum = prompt("部屋番号を入力してください", "1234") || "1234";
+        document.getElementById('multi-status').innerText = `NAME: ${myName} | ROOM: ${roomNum}`;
+        // 簡易的なマッチング：URLに部屋番号を載せて自動接続を促す（実際はサーバーレスだと相手IDが必要）
+        // ここでは相手IDを直接入力するか、ルーム機能を模倣するためにPeer IDの末尾に部屋番号を付与する等の工夫が必要
+        const params = new URLSearchParams(window.location.search);
+        const joinId = params.get('join');
+        if(joinId) { const conn = peer.connect(joinId); conn.on('open', () => setupConn(conn)); }
+    });
+    peer.on('connection', conn => setupConn(conn));
+
+    function setupConn(conn) {
+        connections[conn.peer] = conn;
+        conn.on('data', data => { if(data.type === 'move') updateAvatar(conn.peer, data); });
+    }
+
+    function updateAvatar(id, data) {
+        if(data.room !== roomNum) return; // 同じ部屋番号のみ表示
+        if(!otherPlayers[id]) {
+            otherPlayers[id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x00aaff }));
+            scene.add(otherPlayers[id]);
+        }
+        otherPlayers[id].position.set(data.x, data.y - 0.5, data.z);
+        otherPlayers[id].rotation.y = data.ry;
+    }
+
+    function broadcast() {
+        const data = { type: 'move', name: myName, room: roomNum, x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: camera.rotation.y };
+        for(let id in connections) { if(connections[id].open) connections[id].send(data); }
+    }
+
+    // --- 操作系 (スマホ対応) ---
+    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0, isMobile = false, joyDir = {x:0, y:0};
+    camera.position.set(0, -1, 15);
+
+    function updateUIScale() { const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
+    window.addEventListener('resize', updateUIScale);
+    
     function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none'; }
-    function toggleSlot(o){ document.getElementById('ui').classList.toggle('active',o); if(o) document.exitPointerLock(); }
+    function toggleSlot(o){ updateUIScale(); document.getElementById('ui').classList.toggle('active',o); if(o) document.exitPointerLock(); }
     function closeUI(){ toggleSlot(false); }
+
+    const joyContainer = document.getElementById('joystick-container');
+    const joyKnob = document.getElementById('joystick-knob');
+    joyContainer.addEventListener('touchmove', (e) => {
+        e.preventDefault(); const t = e.touches[0]; const r = joyContainer.getBoundingClientRect();
+        const cx = r.left + r.width/2; const cy = r.top + r.height/2;
+        let dx = t.clientX - cx; let dy = t.clientY - cy;
+        const d = Math.sqrt(dx*dx+dy*dy); if(d>50){ dx*=50/d; dy*=50/d; }
+        joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        joyDir = {x: dx/50, y: dy/50};
+    }, {passive: false});
+    joyContainer.addEventListener('touchend', () => { joyKnob.style.transform = `translate(-50%, -50%)`; joyDir = {x:0, y:0}; });
 
     document.addEventListener('mousedown', () => {
         if(document.getElementById('ui').classList.contains('active')) return;
@@ -175,36 +194,36 @@
         if(ray.intersectObjects(machines.map(m=>m.mesh)).length > 0) toggleSlot(true);
         else if(!isMobile) renderer.domElement.requestPointerLock();
     });
+    document.addEventListener('mousemove', e => { if (document.pointerLockElement === renderer.domElement) { targetYaw -= e.movementX * 0.002; targetPitch -= e.movementY * 0.002; targetPitch = Math.max(-1.5, Math.min(1.5, targetPitch)); } });
+    document.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=true; if(k==='s')moveDir.b=true; if(k==='a')moveDir.l=true; if(k==='d')moveDir.r=true; });
+    document.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=false; if(k==='s')moveDir.b=false; if(k==='a')moveDir.l=false; if(k==='d')moveDir.r=false; });
 
-    document.addEventListener('mousemove', (e) => { if (document.pointerLockElement === renderer.domElement) { targetYaw -= e.movementX * 0.002; targetPitch -= e.movementY * 0.002; targetPitch = Math.max(-1.5, Math.min(1.5, targetPitch)); } });
-    document.addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=true; if(k==='s')moveDir.b=true; if(k==='a')moveDir.l=true; if(k==='d')moveDir.r=true; });
-    document.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=false; if(k==='s')moveDir.b=false; if(k==='a')moveDir.l=false; if(k==='d')moveDir.r=false; });
+    function initGame() { 
+        loadGame(); shuffleReels(); updateUIScale();
+        document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div class="pay-item"><span>${s}</span><span>x${v}</span></div>`).join('');
+        loop(); 
+    }
 
-    function initGame() { loadGame(); shuffleReels(); document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div class="pay-item"><span>${s}</span><span>x${v}</span></div>`).join(''); loop(); }
-
+    let lastBroad = 0;
     function loop() {
         requestAnimationFrame(loop);
         if (!document.getElementById('ui').classList.contains('active')) {
             currentYaw += (targetYaw - currentYaw) * 0.15;
             currentPitch += (targetPitch - currentPitch) * 0.15;
             camera.rotation.set(currentPitch, currentYaw, 0, 'YXZ');
-
+            
             let wishDir = new THREE.Vector3();
-            if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1;
+            if(isMobile) { wishDir.x = joyDir.x; wishDir.z = joyDir.y; }
+            else { if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1; }
+            
             wishDir.normalize().applyQuaternion(camera.quaternion); wishDir.y = 0;
             velocity.addScaledVector(wishDir, 0.02); velocity.multiplyScalar(0.85);
-
-            // 視点揺れ：しっかりと揺らす
-            if (velocity.length() > 0.01) {
-                bobTime += 0.15;
-                camera.position.y = -1 + Math.sin(bobTime) * 0.06; // 揺れ幅を増加
-            } else {
-                camera.position.y += (-1 - camera.position.y) * 0.1;
-            }
-
+            if (velocity.length() > 0.01) { bobTime += 0.15; camera.position.y = -1 + Math.sin(bobTime) * 0.06; }
             camera.position.add(velocity);
+            
             if(Math.abs(camera.position.x) > 9.5) camera.position.x = Math.sign(camera.position.x) * 9.5;
             if(Math.abs(camera.position.z) > 29.5) camera.position.z = Math.sign(camera.position.z) * 29.5;
+            if(Date.now() - lastBroad > 30) { broadcast(); lastBroad = Date.now(); }
         }
         renderer.render(scene, camera);
     }
