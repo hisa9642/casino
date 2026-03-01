@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Multiplay Fixed v3</title>
+    <title>8-LINE SLOT - Multiplay Fixed</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
@@ -12,13 +12,14 @@
         #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
         #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); }
-        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #0f0; background: rgba(0,0,0,0.8); padding: 10px; font-size: 11px; border-radius: 5px; border: 1px solid #0f0; pointer-events: none; }
+        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px 12px; font-size: 12px; border-radius: 5px; border: 1px solid #0f0; white-space: pre-line; }
+
+        /* スロットUI */
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
         #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
-        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
-        .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
+        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; position: relative; }
+        .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 0.9rem; }
         .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
-        #fever-label { color: #f00; font-size: 1.6rem; visibility: hidden; animation: blink 0.4s infinite alternate; }
         #status-text { color: #f00; font-size: 2rem; }
         .reels { display: flex; gap: 10px; background: #000; padding: 15px; margin: 20px 0; border: 6px solid #666; }
         .reel-box { width: 110px; height: 240px; background: #fff; overflow: hidden; position: relative; }
@@ -27,7 +28,6 @@
         .stats { color: #f00; font-size: 1.8rem; display: flex; gap: 30px; margin-bottom: 15px; }
         .lever { width: 65px; height: 65px; background: radial-gradient(#666, #222); border-radius: 50%; border: 4px solid #777; cursor: pointer; }
         .stop-btn { width: 95px; height: 95px; border-radius: 50%; background: #ccc; border: 6px solid #999; font-weight: bold; cursor: pointer; }
-        @keyframes blink { from { opacity: 1; } to { opacity: 0.1; } }
     </style>
 </head>
 <body onload="initGame()" oncontextmenu="return false;">
@@ -35,27 +35,24 @@
 <button id="mobile-toggle" onclick="toggleMobile()">スマホ用 ON/OFF</button>
 <div id="joystick-container"><div id="joystick-knob"></div></div>
 <div id="three-canvas"></div>
-<div id="multi-status">P2P INITIALIZING...</div>
+<div id="multi-status">CONNECTING...</div>
 
 <div id="ui">
-    <div class="slot-container" id="main-container">
+    <div class="slot-container">
         <div class="paytable" id="pay-list"></div>
         <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
-            <button onclick="resetGame()" style="background: #822; color: white; border: none; padding: 5px 15px; border-radius: 5px;">RESET</button>
-            <button onclick="closeUI()" style="background: #444; color: white; border: none; padding: 5px 15px; border-radius: 5px;">EXIT</button>
+            <button onclick="resetGame()" style="background: #822; color: white; border: none; padding: 5px 10px; border-radius: 5px;">RESET</button>
+            <button onclick="closeUI()" style="background: #444; color: white; border: none; padding: 5px 10px; border-radius: 5px;">EXIT</button>
         </div>
-        <div class="lcd"><div id="fever-label">🔥 FEVER TIME 🔥</div><div id="status-text">READY</div></div>
+        <div class="lcd"><div id="status-text">READY</div></div>
         <div class="reels">
             <div class="reel-box"><div id="s0" class="strip"></div></div>
             <div class="reel-box"><div id="s1" class="strip"></div></div>
             <div class="reel-box"><div id="s2" class="strip"></div></div>
         </div>
-        <div class="stats"><div>coin: <span id="credit">100</span></div><div>BET: <span id="bet-val">3</span></div></div>
-        <div style="margin-bottom:15px; color:white;">
-            <button onclick="changeBet(-1)">-1</button><button onclick="changeBet(10)">+10</button>
-            <button onclick="changeBet(1)">+1</button><button onclick="maxBet()">MAX</button>
-        </div>
-        <div class="lever" onclick="start()"></div>
+        <div class="stats"><div>COIN: <span id="credit">100</span></div><div>BET: <span id="bet-val">3</span></div></div>
+        <div style="margin-bottom:15px;"><button onclick="changeBet(1)">BET +1</button><button onclick="maxBet()">MAX</button></div>
+        <div class="lever" onclick="startSlot()"></div>
         <div style="display:flex; gap:15px; margin-top:15px;">
             <button id="b0" class="stop-btn" disabled onclick="stopR(0)">STOP</button>
             <button id="b1" class="stop-btn" disabled onclick="stopR(1)">STOP</button>
@@ -65,148 +62,181 @@
 </div>
 
 <script>
-    // --- SLOT LOGIC (維持) ---
+    // --- スロット設定 ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
-    let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
-    let isFever = false, isSuperFever = false, feverRounds = 0;
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playTone(freq, type, dur, vol=0.1) { try{ const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }catch(e){} }
-    const sounds = { stop: () => playTone(440, 'sine', 0.1), winLine: () => playTone(880, 'square', 0.2), coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } };
-    function saveGame() { localStorage.setItem('slot_credit', credit); }
-    function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
-    function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); document.getElementById('credit').innerText = credit; } }
-    function shuffleReels() { const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒']; [0,1,2].forEach(i => { let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase); REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5); document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); }); }
-    function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
-    function maxBet() { changeBet(100); }
-    function start() { if(speed.some(s=>s>0) || credit < bet) return; if(audioCtx.state === 'suspended') audioCtx.resume(); if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } shuffleReels(); credit -= bet; saveGame(); document.getElementById('credit').innerText = credit; speed = [55, 55, 55]; stopping = [false,false,false]; [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false); animateSlot(); }
-    function stopR(i) { sounds.stop(); let cur = Math.abs(pos[i]); let idx = Math.ceil(cur/80)+1; targetPos[i] = -((idx+1)*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
-    function animateSlot() { let m = false; [0,1,2].forEach(i => { if(speed[i] > 0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } }); if(m) requestAnimationFrame(animateSlot); else if(stopping.every(s=>s)) check(); }
-    async function check() { const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; let winCnt = 0, mults = []; lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); if(mults.length > 0) { let currentTotal = 1; mults.forEach(m => currentTotal *= m); sounds.fever(); credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); if(isSuperFever) feverRounds = (winCnt >= 2) ? 2 : feverRounds - 1; else { if(winCnt >= 2) { isSuperFever = true; feverRounds = 2; } else { isFever = true; feverRounds = 3; } } document.getElementById('fever-label').style.visibility = 'visible'; } else if(isFever || isSuperFever) feverRounds--; if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `FEVER ${feverRounds}` : "RETRY"; }
+    let REELS_DATA = [[],[],[]], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
 
-    // --- 3D Scene ---
+    function initGame() {
+        loadGame(); shuffleReels(); updateUIScale();
+        document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div style="display:flex;justify-content:space-between"><span>${s}</span><span>x${v}</span></div>`).join('');
+        animate();
+    }
+
+    function shuffleReels() {
+        const base = ['🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🎰','⭐','7️⃣'];
+        [0,1,2].forEach(i => {
+            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5);
+            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join('');
+        });
+    }
+
+    function startSlot() {
+        if(speed.some(s=>s>0) || credit < bet) return;
+        credit -= bet; document.getElementById('credit').innerText = credit;
+        speed = [50, 50, 50]; stopping = [false,false,false];
+        [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false);
+        document.getElementById('status-text').innerText = "SPINNING";
+    }
+
+    function stopR(i) {
+        let cur = Math.abs(pos[i]);
+        let idx = Math.ceil(cur/80)+1;
+        targetPos[i] = -((idx+1)*80);
+        stopping[i] = true;
+        document.getElementById(`b${i}`).disabled = true;
+    }
+
+    function updateSlot() {
+        [0,1,2].forEach(i => {
+            if(speed[i] > 0) {
+                if(stopping[i]) {
+                    let d = targetPos[i]-pos[i];
+                    if(Math.abs(d)<1){ pos[i]=targetPos[i]; speed[i]=0; }
+                    else pos[i]+=d*0.2;
+                } else {
+                    pos[i]-=speed[i]; if(pos[i]<=-880) pos[i]=0;
+                }
+                document.getElementById(`s${i}`).style.top = pos[i]+"px";
+            }
+        });
+        if(speed.every(s=>s===0) && stopping.every(s=>s)) {
+            stopping = [false,false,false];
+            checkWin();
+        }
+    }
+
+    function checkWin() {
+        document.getElementById('status-text').innerText = "RETRY";
+        saveGame();
+    }
+
+    function saveGame() { localStorage.setItem('slot_credit_mp', credit); }
+    function loadGame() { let s = localStorage.getItem('slot_credit_mp'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
+    function changeBet(n) { bet = Math.max(1, Math.min(100, bet+n)); document.getElementById('bet-val').innerText = bet; }
+    function maxBet() { bet = 100; document.getElementById('bet-val').innerText = bet; }
+
+    // --- 3D 空間 ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x111111);
     document.getElementById('three-canvas').appendChild(renderer.domElement);
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-    
-    // Floor/Ceil
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x444444 })); floor.rotation.x = -Math.PI/2; floor.position.y = -2; scene.add(floor);
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x222222 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), new THREE.MeshStandardMaterial({ color: 0x333333 })); wall.position.set(-10, 0, 0); wall.rotation.y = Math.PI/2; scene.add(wall);
+
+    const floor = new THREE.GridHelper(100, 50, 0x00ff00, 0x222222);
+    floor.position.y = -2;
+    scene.add(floor);
 
     const machines = [];
     for(let i=-2; i<=2; i++){
         const m = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
         m.position.set(-8.5, 0, i*8); scene.add(m); machines.push(m);
     }
+    camera.position.set(0, 0, 10);
 
-    // --- P2P Mesh Connection (絶対に繋がる方式) ---
-    const roomNum = prompt("部屋番号を入力 (同じ番号の人と会えます)", "777") || "777";
-    const myId = "SLOT-" + roomNum + "-" + Math.floor(Math.random() * 1000000);
-    const peer = new Peer(myId);
-    const otherAvatars = {};
-    const conns = {};
+    // --- 通信 (成功したデバッグ版のロジックを統合) ---
+    const roomNum = prompt("部屋番号を入力", "777") || "777";
+    const myId = "P" + Math.floor(Math.random() * 9000 + 1000);
+    const hostId = "slot-room-" + roomNum + "-host";
+    
+    let peer = new Peer(myId);
+    let connections = [];
+    const avatars = {};
 
     peer.on('open', (id) => {
-        updateStatus(`WAITING... (Room: ${roomNum})`);
-        // 1秒ごとに他のプレイヤーを探す（総当たりスキャン）
-        setInterval(scanPlayers, 3000);
+        updateStatus(`ID: ${id}\nROOM: ${roomNum}`);
+        tryConnectHost();
     });
 
-    peer.on('connection', (conn) => {
-        setupConn(conn);
-    });
-
-    function scanPlayers() {
-        // PeerJSの制限上、IDが分からないと繋げないため、
-        // 「同じ部屋番号を持つ固定範囲のID」をチェックする（簡易型）
-        // 実際にはサーバーがないと厳しいですが、ここでは「自分から接続」を積極的に行います
+    function tryConnectHost() {
+        const conn = peer.connect(hostId);
+        setupConnection(conn);
+        setTimeout(() => {
+            if (connections.length === 0) startAsHost();
+        }, 3000);
     }
 
-    function setupConn(conn) {
-        if(conns[conn.peer]) return;
-        conns[conn.peer] = conn;
+    function startAsHost() {
+        const hostPeer = new Peer(hostId);
+        hostPeer.on('open', () => updateStatus(`HOSTING\nROOM: ${roomNum}`));
+        hostPeer.on('connection', (conn) => setupConnection(conn));
+    }
+
+    function setupConnection(conn) {
+        conn.on('open', () => {
+            if (!connections.find(c => c.peer === conn.peer)) connections.push(conn);
+            updateStatus(`CONNECTED\nROOM: ${roomNum}\nPLAYERS: ${connections.length + 1}`);
+        });
         conn.on('data', (data) => {
-            if(data.type === 'move') {
-                if(!otherAvatars[data.id]) {
-                    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+            if (data.type === 'move') {
+                if (!avatars[data.id]) {
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
                     scene.add(mesh);
-                    otherAvatars[data.id] = mesh;
+                    avatars[data.id] = mesh;
                 }
-                otherAvatars[data.id].position.set(data.x, data.y - 1, data.z);
-                otherAvatars[data.id].rotation.y = data.ry;
+                avatars[data.id].position.set(data.x, data.y, data.z);
+                avatars[data.id].rotation.y = data.ry;
             }
         });
-        conn.on('close', () => {
-            if(otherAvatars[conn.peer]) scene.remove(otherAvatars[conn.peer]);
-            delete otherAvatars[conn.peer];
-            delete conns[conn.peer];
-        });
     }
-
-    // --- 重要：自分から他の人に接続する（部屋内のハブを使わずに直接） ---
-    // ここでホストID（固定）に繋ぎに行きます
-    const hubId = "HUB-" + roomNum;
-    const hubPeer = new Peer(hubId);
-    hubPeer.on('open', () => log("あなたがこの部屋の接続ハブになりました"));
-    hubPeer.on('connection', (c) => {
-        setupConn(c);
-        // ハブは入ってきた人を他の全員に紹介する
-    });
-    hubPeer.on('error', () => {
-        // ハブがいれば、そこに繋ぎにいく
-        const c = peer.connect(hubId);
-        setupConn(c);
-    });
 
     function broadcast() {
-        const data = { type:'move', id:myId, x:camera.position.x, y:camera.position.y, z:camera.position.z, ry:camera.rotation.y };
-        for(let id in conns) { if(conns[id].open) conns[id].send(data); }
+        const data = { type:'move', id:myId, x:camera.position.x, y:camera.position.y-1, z:camera.position.z, ry:camera.rotation.y };
+        connections.forEach(c => { if(c.open) c.send(data); });
     }
 
-    // --- Controls ---
-    let move = { f:0, b:0, l:0, r:0 }, targetRot = { y:0, p:0 };
-    camera.position.set(0, 0, 15);
+    function updateStatus(t) { document.getElementById('multi-status').innerText = t; }
 
-    function updateStatus(t) { document.getElementById('multi-status').innerText = t + `\nPLAYERS: ${Object.keys(otherAvatars).length + 1}`; }
-    function toggleMobile() { document.getElementById('joystick-container').style.display = 'block'; }
-    function toggleSlot(o){ document.getElementById('ui').classList.toggle('active',o); if(o) document.exitPointerLock(); }
-    function closeUI(){ toggleSlot(false); }
-
-    window.onkeydown = (e) => { const k=e.key.toLowerCase(); if(k=='w')move.f=1; if(k=='s')move.b=1; if(k=='a')move.l=1; if(k=='d')move.r=1; };
-    window.onkeyup = (e) => { const k=e.key.toLowerCase(); if(k=='w')move.f=0; if(k=='s')move.b=0; if(k=='a')move.l=0; if(k=='d')move.r=0; };
+    // --- 操作 ---
+    let moveDir = { f:false, b:false, l:false, r:false };
+    window.onkeydown = (e) => { const k=e.code; if(k==='KeyW')moveDir.f=true; if(k==='KeyS')moveDir.b=true; if(k==='KeyA')moveDir.l=true; if(k==='KeyD')moveDir.r=true; };
+    window.onkeyup = (e) => { const k=e.code; if(k==='KeyW')moveDir.f=false; if(k==='KeyS')moveDir.b=false; if(k==='KeyA')moveDir.l=false; if(k==='KeyD')moveDir.r=false; };
+    
     document.addEventListener('mousedown', () => {
         if(document.getElementById('ui').classList.contains('active')) return;
         const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
         if(ray.intersectObjects(machines).length > 0) toggleSlot(true);
         else renderer.domElement.requestPointerLock();
     });
-    document.addEventListener('mousemove', (e) => {
-        if (document.pointerLockElement === renderer.domElement) {
-            camera.rotation.y -= e.movementX * 0.002;
-        }
+
+    window.addEventListener('mousemove', (e) => {
+        if (document.pointerLockElement === renderer.domElement) camera.rotation.y -= e.movementX * 0.002;
     });
 
-    function loop() {
-        requestAnimationFrame(loop);
-        if(!document.getElementById('ui').classList.contains('active')) {
-            const dir = new THREE.Vector3(move.r - move.l, 0, move.b - move.f).normalize();
-            dir.applyQuaternion(camera.quaternion); dir.y = 0;
-            camera.position.addScaledVector(dir, 0.1);
-            if(Date.now() % 5 === 0) broadcast();
-            updateStatus("ONLINE");
-        }
-        renderer.render(scene, camera);
+    function toggleSlot(o){ 
+        updateUIScale();
+        document.getElementById('ui').classList.toggle('active',o); 
+        if(o) document.exitPointerLock(); 
     }
+    function closeUI(){ toggleSlot(false); }
+    function toggleMobile() { document.getElementById('joystick-container').style.display = 'block'; }
+    function updateUIScale() { const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
 
-    function initGame() {
-        loadGame(); shuffleReels();
-        document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div style="display:flex; justify-content:space-between;"><span>${s}</span><span>x${v}</span></div>`).join('');
-        const s = Math.min(window.innerWidth/500, window.innerHeight/820, 1);
-        document.documentElement.style.setProperty('--ui-scale', s);
-        loop();
+    // --- メインループ ---
+    function animate() {
+        requestAnimationFrame(animate);
+        if(!document.getElementById('ui').classList.contains('active')) {
+            const speed = 0.1;
+            const dir = new THREE.Vector3();
+            if(moveDir.f) dir.z -= speed; if(moveDir.b) dir.z += speed;
+            if(moveDir.l) dir.x -= speed; if(moveDir.r) dir.x += speed;
+            dir.applyQuaternion(camera.quaternion); dir.y = 0;
+            camera.position.add(dir);
+            if(connections.length > 0) broadcast();
+        }
+        updateSlot();
+        renderer.render(scene, camera);
     }
 </script>
 </body>
