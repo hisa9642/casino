@@ -1,172 +1,202 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>3D Slot Multiplayer Stable</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<style>
-body{margin:0;overflow:hidden;background:#000}
-#multi-status{
-position:fixed;bottom:10px;right:10px;
-background:white;padding:10px;font-weight:bold;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>8-LINE SLOT - Multiplayer Verified</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --gold: #ffd700; --fever: #ff0000; }
+        body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
+        #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
+        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #000; background: rgba(255,255,255,0.9); padding: 10px; font-size: 12px; border-radius: 5px; font-weight: bold; white-space: pre-line; }
+
+        #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
+        #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
+        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
+        .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
+        @media (max-width: 850px) { .paytable { display: none; } }
+        .pay-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 5px 0; }
+        .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        #status-text { color: #f00; font-size: 2rem; }
+        .reels { display: flex; gap: 10px; background: #000; padding: 15px; margin: 20px 0; border: 6px solid #666; }
+        .reel-box { width: 110px; height: 240px; background: #fff; overflow: hidden; position: relative; }
+        .strip { position: absolute; width: 100%; top: 0; left: 0; }
+        .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 3.2rem; border-bottom: 1px solid #ddd; box-sizing: border-box; color: #000; }
+        .stats { color: #f00; font-size: 1.8rem; display: flex; gap: 30px; margin-bottom: 15px; }
+        .lever { width: 65px; height: 65px; background: radial-gradient(#666, #222); border-radius: 50%; border: 4px solid #777; cursor: pointer; }
+        .stop-btn { width: 95px; height: 95px; border-radius: 50%; background: #ccc; border: 6px solid #999; font-weight: bold; cursor: pointer; }
+        #crosshair { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; opacity: 0.8; }
+    </style>
 </head>
-<body>
+<body onload="initGame()" oncontextmenu="return false;">
 
-<div id="multi-status">接続中...</div>
+<button id="mobile-toggle" onclick="toggleMobile()">スマホ用 ON/OFF</button>
+<div id="joystick-container"><div id="joystick-knob"></div></div>
+<div id="crosshair"></div>
+<div id="three-canvas"></div>
+<div id="multi-status">Peer初期化中...</div>
 
+<div id="ui">
+    <div class="slot-container">
+        <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
+            <button onclick="closeUI()" style="cursor:pointer; background: #444; color: white; border: none; padding: 5px 15px; border-radius: 5px;">EXIT</button>
+        </div>
+        <div class="lcd"><div id="status-text">READY</div></div>
+        <div class="reels">
+            <div class="reel-box"><div id="s0" class="strip"></div></div>
+            <div class="reel-box"><div id="s1" class="strip"></div></div>
+            <div class="reel-box"><div id="s2" class="strip"></div></div>
+        </div>
+        <div class="stats"><div>coin: <span id="credit">100</span></div><div>BET: <span id="bet-val">3</span></div></div>
+        <div class="lever" onclick="start()"></div>
+        <div style="display:flex; gap:15px; margin-top:15px;">
+            <button id="b0" class="stop-btn" disabled onclick="stopR(0)">STOP</button>
+            <button id="b1" class="stop-btn" disabled onclick="stopR(1)">STOP</button>
+            <button id="b2" class="stop-btn" disabled onclick="stopR(2)">STOP</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// =======================
-// 3D空間
-// =======================
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(innerWidth,innerHeight);
-document.body.appendChild(renderer.domElement);
+    // --- スロットロジック簡略版（マルチプレイ検証優先） ---
+    let credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false];
+    function start() { if(speed.some(s=>s>0)) return; credit -= bet; document.getElementById('credit').innerText = credit; speed = [55,55,55]; stopping = [false,false,false]; [0,1,2].forEach(i=>document.getElementById(`b${i}`).disabled=false); animateSlot(); }
+    function stopR(i) { stopping[i]=true; document.getElementById(`b${i}`).disabled=true; }
+    function animateSlot() { let m=false; [0,1,2].forEach(i=>{ if(speed[i]>0){ m=true; if(stopping[i]) speed[i]=0; else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } }); if(m) requestAnimationFrame(animateSlot); }
+    function initGame() { [0,1,2].forEach(i=>document.getElementById(`s${i}`).innerHTML='<div class="symbol">🎰</div>'.repeat(40)); initThree(); initMultiplayer(); loop(); }
 
-camera.position.set(0,1.5,5);
+    // --- 3D 空間 ---
+    let scene, camera, renderer;
+    function initThree() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('three-canvas').appendChild(renderer.domElement);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+        floor.rotation.x = -Math.PI/2; floor.position.y = -2; scene.add(floor);
+        camera.position.set(Math.random()*2, 0, 10); // 初期位置を少しランダムに
+    }
 
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
-const light=new THREE.DirectionalLight(0xffffff,0.8);
-light.position.set(5,10,5);
-scene.add(light);
+    // --- マルチプレイ（超安定版） ---
+    let peer, myId = "ID-" + Math.random().toString(36).substring(2, 7);
+    let connections = [], otherPlayers = {};
 
-const floor=new THREE.Mesh(
-new THREE.PlaneGeometry(50,50),
-new THREE.MeshStandardMaterial({color:0x444444})
-);
-floor.rotation.x=-Math.PI/2;
-scene.add(floor);
+    function initMultiplayer() {
+        const roomNum = prompt("部屋番号", "1234") || "1234";
+        const hostId = `room-${roomNum}-host`;
+        peer = new Peer(myId);
 
-// =======================
-// マルチ安定版
-// =======================
+        peer.on('open', id => {
+            myId = id;
+            updateStatus("マイID: " + id + "\n接続を試みています...");
+            const conn = peer.connect(hostId);
+            setupConnection(conn);
+        });
 
-let room = prompt("部屋番号","1234") || "1234";
-let hostId = "slot-room-" + room;
-let peer;
-let isHost=false;
-let myId="";
-let hostConn=null;
-
-const connections=[];
-const otherPlayers={};
-const playerStates={};
-
-// ホスト作成を試す
-peer = new Peer(hostId);
-
-peer.on("open",id=>{
-    isHost=true;
-    myId=id;
-    document.getElementById("multi-status").innerText="ROOM:"+room+" (ホスト)";
-    setupHost();
-});
-
-peer.on("error",err=>{
-    if(err.type==="unavailable-id"){
-        peer=new Peer();
-        peer.on("open",id=>{
-            myId=id;
-            connectToHost();
+        peer.on('error', err => {
+            if (err.type === 'peer-unavailable') {
+                // 自分がホストになる
+                peer.destroy();
+                peer = new Peer(hostId);
+                peer.on('open', id => {
+                    myId = id;
+                    updateStatus("あなたがホストです\n待機中...");
+                });
+                peer.on('connection', conn => setupConnection(conn));
+            }
         });
     }
-});
 
-function setupHost(){
-    peer.on("connection",conn=>{
-        conn.on("open",()=>{
-            connections.push(conn);
-            setupConnection(conn);
-            document.getElementById("multi-status").innerText="ROOM:"+room+" (参加あり)";
-            Object.values(playerStates).forEach(s=>conn.send(s));
+    function setupConnection(conn) {
+        conn.on('open', () => {
+            if(!connections.find(c => c.peer === conn.peer)) connections.push(conn);
+            updateStatus("接続成功！\nプレイヤーを探しています...");
+            // 初回データ送信
+            sendMove();
         });
-    });
-}
+        conn.on('data', data => {
+            if (data.type === 'move') {
+                receiveMove(data);
+                // ホストなら中継
+                if (myId.includes('host')) {
+                    connections.forEach(c => { if(c.open && c.peer !== conn.peer) c.send(data); });
+                }
+            }
+        });
+    }
 
-function connectToHost(){
-    hostConn=peer.connect(hostId);
-    hostConn.on("open",()=>{
-        document.getElementById("multi-status").innerText="ROOM:"+room+" (接続成功)";
-        setupConnection(hostConn);
-    });
-}
+    function receiveMove(data) {
+        if (!otherPlayers[data.id]) {
+            // アバターが存在しない場合のみ作成
+            const geo = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+            const mat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+            const mesh = new THREE.Mesh(geo, mat);
+            scene.add(mesh);
+            otherPlayers[data.id] = mesh;
+            console.log("アバター生成:", data.id);
+        }
+        // 位置を更新
+        otherPlayers[data.id].position.set(data.x, data.y, data.z);
+        otherPlayers[data.id].rotation.y = data.ry;
+    }
 
-function setupConnection(conn){
-    conn.on("data",data=>{
-        if(!data||data.type!=="move")return;
-        updateAvatar(data.sid,data);
-        playerStates[data.sid]=data;
-        if(isHost){
-            connections.forEach(c=>{
-                if(c!==conn&&c.open)c.send(data);
-            });
+    function sendMove() {
+        if (!peer || peer.destroyed) return;
+        const data = { type: 'move', id: myId, x: camera.position.x, y: camera.position.y - 0.5, z: camera.position.z, ry: camera.rotation.y };
+        connections.forEach(c => { if(c.open) c.send(data); });
+    }
+
+    function updateStatus(txt) {
+        const count = Object.keys(otherPlayers).length;
+        document.getElementById('multi-status').innerText = `${txt}\n表示中の他プレイヤー: ${count}人`;
+    }
+
+    // --- ループ & 操作 ---
+    let velocity = new THREE.Vector3(), moveDir = {f:0, b:0, l:0, r:0};
+    document.addEventListener('keydown', e => {
+        if(e.key==='w') moveDir.f=1; if(e.key==='s') moveDir.b=1;
+        if(e.key==='a') moveDir.l=1; if(e.key==='d') moveDir.r=1;
+    });
+    document.addEventListener('keyup', e => {
+        if(e.key==='w') moveDir.f=0; if(e.key==='s') moveDir.b=0;
+        if(e.key==='a') moveDir.l=0; if(e.key==='d') moveDir.r=0;
+    });
+
+    function loop() {
+        requestAnimationFrame(loop);
+        
+        // 移動処理
+        let dir = new THREE.Vector3(moveDir.r - moveDir.l, 0, moveDir.b - moveDir.f).normalize();
+        dir.applyQuaternion(camera.quaternion); dir.y = 0;
+        velocity.addScaledVector(dir, 0.05);
+        velocity.multiplyScalar(0.8);
+        camera.position.add(velocity);
+
+        // 常に自分の位置を送信
+        if (Date.now() % 3 === 0) sendMove(); 
+        
+        // ステータス更新（アバター数を確認するため）
+        if (Date.now() % 60 === 0) updateStatus(myId.includes('host') ? "ホスト中" : "ゲスト接続中");
+
+        renderer.render(scene, camera);
+    }
+
+    function toggleMobile() { document.getElementById('joystick-container').style.display = 'block'; }
+    function closeUI() { document.getElementById('ui').classList.remove('active'); }
+    document.addEventListener('mousedown', () => { 
+        if(!document.getElementById('ui').classList.contains('active')) renderer.domElement.requestPointerLock();
+    });
+    document.addEventListener('mousemove', e => {
+        if(document.pointerLockElement === renderer.domElement) {
+            camera.rotation.y -= e.movementX * 0.002;
         }
     });
-}
-
-function updateAvatar(id,data){
-    if(id===myId)return;
-    if(!otherPlayers[id]){
-        const geo=new THREE.CapsuleGeometry(0.5,1,4,8);
-        const mat=new THREE.MeshStandardMaterial({
-            color:Math.random()*0xffffff
-        });
-        const mesh=new THREE.Mesh(geo,mat);
-        otherPlayers[id]=mesh;
-        scene.add(mesh);
-    }
-    otherPlayers[id].position.set(data.x,data.y-1,data.z);
-    otherPlayers[id].rotation.y=data.ry;
-}
-
-function broadcast(){
-    if(!peer||!peer.open)return;
-    const data={
-        type:"move",
-        sid:myId,
-        x:camera.position.x,
-        y:camera.position.y,
-        z:camera.position.z,
-        ry:camera.rotation.y
-    };
-    playerStates[myId]=data;
-    if(isHost){
-        connections.forEach(c=>{if(c.open)c.send(data);});
-    }else if(hostConn&&hostConn.open){
-        hostConn.send(data);
-    }
-}
-
-// =======================
-// 操作
-// =======================
-
-let keys={};
-document.addEventListener("keydown",e=>keys[e.key]=true);
-document.addEventListener("keyup",e=>keys[e.key]=false);
-
-let lastSend=0;
-
-function animate(){
-requestAnimationFrame(animate);
-
-if(keys["w"])camera.position.z-=0.1;
-if(keys["s"])camera.position.z+=0.1;
-if(keys["a"])camera.position.x-=0.1;
-if(keys["d"])camera.position.x+=0.1;
-
-if(Date.now()-lastSend>40){
-broadcast();
-lastSend=Date.now();
-}
-
-renderer.render(scene,camera);
-}
-animate();
 </script>
 </body>
 </html>
