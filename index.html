@@ -2,18 +2,16 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Universal 3D Lobby</title>
+    <title>8-LINE SLOT - Realistic Studio</title>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         
-        /* スマホ用ボタン */
-        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; pointer-events: auto; }
-        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); }
+        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
+        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.1); border-radius: 50%; z-index: 2000; display: none; }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(0,0,0,0.2); border-radius: 50%; transform: translate(-50%, -50%); }
 
-        /* スロットUI */
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
         #ui.active { transform: scale(1); pointer-events: auto; }
         .paytable { position: absolute; left: 20px; width: 180px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1.1rem; }
@@ -24,11 +22,7 @@
         .win-pop { color: #ff0000; font-size: 4rem; font-weight: bold; text-shadow: 0 0 20px #fff, 0 0 40px gold; animation: popIn 0.5s forwards, fadeOut 0.5s 2.5s forwards; margin: 10px; }
         @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
-        @keyframes shake { 0% { transform: translate(3px, 3px); } 50% { transform: translate(-3px, -3px); } 100% { transform: translate(0, 0); } }
         
-        .coin-particle { position: fixed; top: -50px; font-size: 2rem; z-index: 3000; pointer-events: none; animation: coinFall 1.5s linear forwards; }
-        @keyframes coinFall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
-
         .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
         #fever-label { color: #f00; font-size: 1.6rem; visibility: hidden; animation: blink 0.4s infinite alternate; }
         #status-text { color: #f00; font-size: 2rem; }
@@ -43,7 +37,7 @@
         #crosshair { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; opacity: 0.8; }
     </style>
 </head>
-<body onload="initGame()">
+<body onload="initGame()" oncontextmenu="return false;">
 
 <button id="mobile-toggle" onclick="toggleMobile()">スマホ用 ON/OFF</button>
 <div id="joystick-container"><div id="joystick-knob"></div></div>
@@ -79,289 +73,141 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
 <script>
-    // --- スロットシステム (不変) ---
+    // --- スロットシステム ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
     let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
     let isFever = false, isSuperFever = false, feverRounds = 0;
-
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playTone(freq, type, dur, vol=0.1) {
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
-        osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur);
-    }
-    const sounds = {
-        stop: () => playTone(440, 'sine', 0.1),
-        winLine: () => playTone(880, 'square', 0.2),
-        coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05),
-        fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); }
-    };
-
+    function playTone(freq, type, dur, vol=0.1) { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }
+    const sounds = { stop: () => playTone(440, 'sine', 0.1), winLine: () => playTone(880, 'square', 0.2), coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } };
     function saveGame() { localStorage.setItem('slot_credit', credit); }
     function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
     function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); document.getElementById('credit').innerText = credit; } }
-
-    function dropCoins() {
-        for(let i=0; i<30; i++) {
-            setTimeout(() => {
-                const coin = document.createElement('div');
-                coin.className = 'coin-particle'; coin.innerText = '🪙';
-                coin.style.left = Math.random() * 100 + 'vw';
-                document.body.appendChild(coin); sounds.coin();
-                setTimeout(() => coin.remove(), 2000);
-            }, i * 50);
-        }
-    }
-
-    function shuffleReels() {
-        const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉'];
-        const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉'];
-        const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒'];
-        [0,1,2].forEach(i => {
-            let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase);
-            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5);
-            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join('');
-        });
-    }
-
+    function shuffleReels() { const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒']; [0,1,2].forEach(i => { let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase); REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5); document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); }); }
     function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
     function maxBet() { changeBet(100); }
-
-    function start() {
-        if(speed.some(s=>s>0) || credit < bet) return;
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        document.getElementById('win-effect-container').innerHTML = '';
-        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; }
-        shuffleReels(); credit -= bet; saveGame(); document.getElementById('credit').innerText = credit;
-        let lbl = isSuperFever ? "SUPER" : "FEVER";
-        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "SPINNING...";
-        speed = [50+Math.random()*5, 50+Math.random()*5, 50+Math.random()*5];
-        stopping = [false,false,false];
-        [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false);
-        animate();
-    }
-
+    function start() { if(speed.some(s=>s>0) || credit < bet) return; if(audioCtx.state === 'suspended') audioCtx.resume(); document.getElementById('win-effect-container').innerHTML = ''; if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } shuffleReels(); credit -= bet; saveGame(); document.getElementById('credit').innerText = credit; let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "SPINNING..."; speed = [55, 55, 55]; stopping = [false,false,false]; [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false); animate(); }
     function stopR(i) { sounds.stop(); let cur = Math.abs(pos[i]); let idx = Math.ceil(cur/80)+1; targetPos[i] = -((idx+1)*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
+    function animate() { let m = false; [0,1,2].forEach(i => { if(speed[i] > 0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } }); if(m) requestAnimationFrame(animate); else if(stopping.every(s=>s)) check(); }
+    async function check() { const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; let winCnt = 0, mults = []; lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); if(mults.length > 0) { const container = document.getElementById('win-effect-container'); let currentTotal = 1; for(let i=0; i<mults.length; i++) { currentTotal *= mults[i]; if(winCnt >= 2) { const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); } } const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } } else { if(isFever || isSuperFever) feverRounds--; } if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; saveGame(); }
 
-    function animate() {
-        let m = false;
-        [0,1,2].forEach(i => {
-            if(speed[i] > 0) { m = true;
-                if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; }
-                else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; }
-                document.getElementById(`s${i}`).style.top = pos[i]+"px";
-            }
-        });
-        if(m) requestAnimationFrame(animate); else if(stopping.every(s=>s)) check();
-    }
-
-    async function check() {
-        const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; });
-        const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]];
-        let winCnt = 0, mults = [];
-        lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } });
-
-        if(mults.length > 0) {
-            const container = document.getElementById('win-effect-container');
-            const mainContainer = document.getElementById('main-container');
-            let currentTotal = 1;
-            if(winCnt >= 2) dropCoins();
-            for(let i=0; i<mults.length; i++) {
-                const mult = mults[i];
-                currentTotal *= mult;
-                if(winCnt >= 2) {
-                    const div = document.createElement('div');
-                    div.className = 'win-pop'; div.innerText = i === 0 ? `${mult}倍！` : `× ${mult}倍！`;
-                    container.appendChild(div); sounds.winLine();
-                    mainContainer.style.animation = 'shake 0.1s infinite';
-                    await new Promise(r => setTimeout(r, 600));
-                    mainContainer.style.animation = '';
-                }
-            }
-            const finalDiv = document.createElement('div');
-            finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold';
-            finalDiv.innerText = `合計 ${currentTotal}倍！！`;
-            container.appendChild(finalDiv); sounds.winLine(); sounds.fever();
-            credit += (bet * currentTotal);
-            document.getElementById('credit').innerText = credit;
-            saveGame();
-            if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } 
-            else {
-                if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; }
-                else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; }
-            }
-        } else { if(isFever || isSuperFever) feverRounds--; }
-        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; }
-        let lbl = isSuperFever ? "SUPER" : "FEVER";
-        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY";
-        saveGame();
-    }
-
-    // --- Three.js (明るさを戻し、クリック判定を追加) ---
+    // --- Three.js 空間構築 ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x222222);
+    renderer.shadowMap.enabled = true;
     document.getElementById('three-canvas').appendChild(renderer.domElement);
 
-    // 照明 (明るく戻す)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); scene.add(ambientLight);
-    const mainLight = new THREE.PointLight(0xffffff, 1.2, 50); mainLight.position.set(0, 5, 0); scene.add(mainLight);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
 
-    const roomSize = { w: 30, h: 10, d: 50 };
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomSize.w, roomSize.d), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-    floor.rotation.x = -Math.PI / 2; floor.position.y = -5; scene.add(floor);
-    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(roomSize.w, roomSize.d), new THREE.MeshStandardMaterial({ color: 0x666666 }));
-    ceiling.rotation.x = Math.PI / 2; ceiling.position.y = 5; scene.add(ceiling);
-    const walls = [
-        {pos: [0,0,-25], rot: [0,0,0]}, {pos: [0,0,25], rot: [0,Math.PI,0]},
-        {pos: [-15,0,0], rot: [0,Math.PI/2,0]}, {pos: [15,0,0], rot: [0,-Math.PI/2,0]}
-    ];
-    walls.forEach(w => {
-        const wall = new THREE.Mesh(new THREE.PlaneGeometry(30, 10), new THREE.MeshStandardMaterial({ color: 0x555555 }));
-        if(w.pos[0]===0) wall.geometry = new THREE.PlaneGeometry(roomSize.w, 10);
-        else wall.geometry = new THREE.PlaneGeometry(roomSize.d, 10);
-        wall.position.set(...w.pos); wall.rotation.set(...w.rot); scene.add(wall);
-    });
+    // 壁：白地に細かい灰色のレンガ
+    const wallCanvas = document.createElement('canvas'); wallCanvas.width=512; wallCanvas.height=512;
+    const wctx = wallCanvas.getContext('2d');
+    wctx.fillStyle = '#ffffff'; wctx.fillRect(0,0,512,512);
+    wctx.strokeStyle = '#bbbbbb'; wctx.lineWidth = 1;
+    for(let i=0; i<32; i++) { // さらに細かく
+        const y = i * 16; wctx.beginPath(); wctx.moveTo(0, y); wctx.lineTo(512, y); wctx.stroke();
+        const offset = (i % 2) * 16;
+        for(let j=0; j<16; j++) { const x = j * 32 + offset; wctx.beginPath(); wctx.moveTo(x, y); wctx.lineTo(x, y+16); wctx.stroke(); }
+    }
+    const wallTex = new THREE.CanvasTexture(wallCanvas); wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping; wallTex.repeat.set(8, 2);
+    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex });
 
-    // スロット台
-    const machineObjects = [];
+    // 床：真っ黒な格子
+    const floorCanvas = document.createElement('canvas'); floorCanvas.width=512; floorCanvas.height=512;
+    const fctx = floorCanvas.getContext('2d');
+    fctx.fillStyle = '#050505'; fctx.fillRect(0,0,512,512);
+    fctx.strokeStyle = '#1a1a1a'; fctx.lineWidth = 2;
+    for(let i=0; i<16; i++){ fctx.beginPath(); fctx.moveTo(i*32, 0); fctx.lineTo(i*32, 512); fctx.stroke(); fctx.beginPath(); fctx.moveTo(0, i*32); fctx.lineTo(512, i*32); fctx.stroke(); }
+    const floorTex = new THREE.CanvasTexture(floorCanvas); floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(4, 8);
+    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), floorMat); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
+    const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw1.position.set(-10, 0, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
+    const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw2.position.set(10, 0, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
+    const bw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); bw.position.set(0, 0, 30); bw.rotation.y = Math.PI; scene.add(bw);
+    const fw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); fw.position.set(0, 0, -30); scene.add(fw);
+
+    // 天井
+    const ceilMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), ceilMat); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
+
+    const machines = [];
     function createMachine(x, z) {
         const group = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4.5, 1.5), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-        group.add(body);
-        const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-        screen.position.set(0, 1, 0.76); group.add(screen);
-        group.position.set(x, -2.75, z);
+        // 筐体メイン
+        const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.8, roughness: 0.2 }));
+        body.position.y = 2; body.castShadow = true; group.add(body);
+        // モニター（発光）
+        const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.8), new THREE.MeshBasicMaterial({ color: 0x220000 }));
+        screen.position.set(0, 2.8, 0.61); group.add(screen);
+        // 操作テーブル
+        const table = new THREE.Mesh(new THREE.BoxGeometry(2, 0.15, 0.8), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+        table.position.set(0, 1.2, 0.6); table.rotation.x = -0.2; group.add(table);
+        // 装飾ランプ
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 1.2), new THREE.MeshStandardMaterial({ color: 0x330000 }));
+        lamp.position.y = 4.15; group.add(lamp);
+
+        group.position.set(x, -4, z);
         scene.add(group);
-        machineObjects.push(body);
+        machines.push({ pos: new THREE.Vector3(x, -4, z), mesh: body });
     }
-    createMachine(-10, -5); createMachine(-10, 0); createMachine(-10, 5);
+    for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    // 操作
-    camera.position.set(0, 0, 15);
-    let move = { f: false, b: false, l: false, r: false };
-    let pitch = 0, yaw = 0, isMobile = false;
-    let joyDir = { x: 0, y: 0 };
+    camera.position.set(0, -1, 15);
+    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0;
+    let isMobile = false, joyDir = {x:0, y:0};
 
-    function toggleMobile() {
-        isMobile = !isMobile;
-        document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none';
-        if (!isMobile) document.exitPointerLock();
-    }
-
-    // マウスクリック判定 (中央の台をクリック)
-    const raycaster = new THREE.Raycaster();
-    document.addEventListener('mousedown', (e) => {
-        if(document.getElementById('ui').classList.contains('active')) return;
-        
-        // レイキャストでスロット台が正面にあるか確認
-        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-        const intersects = raycaster.intersectObjects(machineObjects);
-        if (intersects.length > 0) {
-            toggleSlot(true);
-        } else if(!isMobile) {
-            renderer.domElement.requestPointerLock();
-        }
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (document.pointerLockElement === renderer.domElement && !isMobile) {
-            yaw -= e.movementX * 0.002;
-            pitch -= e.movementY * 0.002;
-            pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-        }
-    });
-
-    // スマホ用タッチ操作 (右半分で視点)
-    let touchId = null, lastX, lastY;
-    document.addEventListener('touchstart', (e) => {
-        if(!isMobile) return;
-        for(let t of e.changedTouches) {
-            if(t.pageX > window.innerWidth/2) { touchId = t.identifier; lastX = t.pageX; lastY = t.pageY; }
-        }
-    });
-    document.addEventListener('touchmove', (e) => {
-        if(!isMobile) return;
-        for(let t of e.changedTouches) {
-            if(t.identifier === touchId) {
-                yaw -= (t.pageX - lastX) * 0.005;
-                pitch -= (t.pageY - lastY) * 0.005;
-                lastX = t.pageX; lastY = t.pageY;
-            }
-        }
-    });
-
-    // ジョイスティック
-    const joyKnob = document.getElementById('joystick-knob');
-    document.getElementById('joystick-container').addEventListener('touchmove', (e) => {
-        const t = e.touches[0];
-        const rect = e.currentTarget.getBoundingClientRect();
-        const centerX = rect.left + rect.width/2;
-        const centerY = rect.top + rect.height/2;
-        let dx = t.pageX - centerX;
-        let dy = t.pageY - centerY;
-        const dist = Math.min(60, Math.sqrt(dx*dx + dy*dy));
-        const angle = Math.atan2(dy, dx);
-        joyDir.x = Math.cos(angle) * (dist/60);
-        joyDir.y = Math.sin(angle) * (dist/60);
-        joyKnob.style.transform = `translate(calc(-50% + ${dx*(dist/60)}px), calc(-50% + ${dy*(dist/60)}px))`;
-    });
-    document.getElementById('joystick-container').addEventListener('touchend', () => {
-        joyDir = {x:0, y:0}; joyKnob.style.transform = `translate(-50%, -50%)`;
-    });
-
-    document.addEventListener('keydown', (e) => {
-        const k = e.key.toLowerCase();
-        if(k === 'w') move.f = true; if(k === 's') move.b = true;
-        if(k === 'a') move.l = true; if(k === 'd') move.r = true;
-        if(k === 'e') toggleSlot(true);
-    });
-    document.addEventListener('keyup', (e) => {
-        const k = e.key.toLowerCase();
-        if(k === 'w') move.f = false; if(k === 's') move.b = false;
-        if(k === 'a') move.l = false; if(k === 'd') move.r = false;
-    });
-
-    function toggleSlot(o){ 
-        document.getElementById('ui').classList.toggle('active',o);
-        if(o) document.exitPointerLock();
-    }
+    function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none'; }
+    function toggleSlot(o){ document.getElementById('ui').classList.toggle('active',o); if(o) document.exitPointerLock(); }
     function closeUI(){ toggleSlot(false); }
 
-    function initGame() {
-        loadGame(); shuffleReels();
-        document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div class="pay-item"><span>${s}</span><span>x${v}</span></div>`).join('');
-        loop();
-    }
+    document.addEventListener('mousedown', () => {
+        if(document.getElementById('ui').classList.contains('active')) return;
+        const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
+        if(ray.intersectObjects(machines.map(m=>m.mesh)).length > 0) toggleSlot(true);
+        else if(!isMobile) renderer.domElement.requestPointerLock();
+    });
+
+    document.addEventListener('mousemove', (e) => { if (document.pointerLockElement === renderer.domElement) { targetYaw -= e.movementX * 0.002; targetPitch -= e.movementY * 0.002; targetPitch = Math.max(-1.5, Math.min(1.5, targetPitch)); } });
+    document.addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=true; if(k==='s')moveDir.b=true; if(k==='a')moveDir.l=true; if(k==='d')moveDir.r=true; });
+    document.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=false; if(k==='s')moveDir.b=false; if(k==='a')moveDir.l=false; if(k==='d')moveDir.r=false; });
+
+    function initGame() { loadGame(); shuffleReels(); document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div class="pay-item"><span>${s}</span><span>x${v}</span></div>`).join(''); loop(); }
 
     function loop() {
         requestAnimationFrame(loop);
         if (!document.getElementById('ui').classList.contains('active')) {
-            camera.rotation.set(pitch, yaw, 0, 'YXZ');
-            const dir = new THREE.Vector3();
-            if(isMobile) {
-                dir.z = joyDir.y; dir.x = joyDir.x;
+            currentYaw += (targetYaw - currentYaw) * 0.15;
+            currentPitch += (targetPitch - currentPitch) * 0.15;
+            camera.rotation.set(currentPitch, currentYaw, 0, 'YXZ');
+
+            let wishDir = new THREE.Vector3();
+            if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1;
+            wishDir.normalize().applyQuaternion(camera.quaternion); wishDir.y = 0;
+            velocity.addScaledVector(wishDir, 0.02); velocity.multiplyScalar(0.85);
+
+            // 視点揺れ：しっかりと揺らす
+            if (velocity.length() > 0.01) {
+                bobTime += 0.15;
+                camera.position.y = -1 + Math.sin(bobTime) * 0.06; // 揺れ幅を増加
             } else {
-                if(move.f) dir.z -= 1; if(move.b) dir.z += 1;
-                if(move.l) dir.x -= 1; if(move.r) dir.x += 1;
+                camera.position.y += (-1 - camera.position.y) * 0.1;
             }
-            dir.normalize().applyQuaternion(camera.quaternion);
-            camera.position.addScaledVector(dir, 0.15);
-            camera.position.y = 0;
+
+            camera.position.add(velocity);
+            if(Math.abs(camera.position.x) > 9.5) camera.position.x = Math.sign(camera.position.x) * 9.5;
+            if(Math.abs(camera.position.z) > 29.5) camera.position.z = Math.sign(camera.position.z) * 29.5;
         }
         renderer.render(scene, camera);
     }
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 </script>
 </body>
 </html>
