@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Room Connect</title>
+    <title>8-LINE SLOT - Multiplayer Fixed</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
@@ -44,7 +44,7 @@
 <div id="crosshair"></div>
 <div id="win-effect-container"></div>
 <div id="three-canvas"></div>
-<div id="multi-status">接続準備中...</div>
+<div id="multi-status">準備中...</div>
 
 <div id="ui">
     <div class="slot-container" id="main-container">
@@ -75,7 +75,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    // --- スロットロジック (一切不変) ---
+    // --- スロットロジック (維持) ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
     let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
     let isFever = false, isSuperFever = false, feverRounds = 0;
@@ -93,7 +93,7 @@
     function animate() { let m = false; [0,1,2].forEach(i => { if(speed[i] > 0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } }); if(m) requestAnimationFrame(animate); else if(stopping.every(s=>s)) check(); }
     async function check() { const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; let winCnt = 0, mults = []; lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); if(mults.length > 0) { const container = document.getElementById('win-effect-container'); let currentTotal = 1; for(let i=0; i<mults.length; i++) { currentTotal *= mults[i]; if(winCnt >= 2) { const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); } } const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } } else { if(isFever || isSuperFever) feverRounds--; } if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; saveGame(); }
 
-    // --- 3D 空間 (一切不変) ---
+    // --- 3D 空間 (維持) ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -102,7 +102,6 @@
     document.getElementById('three-canvas').appendChild(renderer.domElement);
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
-
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
     const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
@@ -110,7 +109,6 @@
     const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw2.position.set(10, 0, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
     const bw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); bw.position.set(0, 0, 30); bw.rotation.y = Math.PI; scene.add(bw);
     const fw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); fw.position.set(0, 0, -30); scene.add(fw);
-
     const machines = [];
     function createMachine(x, z) {
         const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
@@ -119,91 +117,69 @@
     }
     for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    // --- 【完全修正】部屋番号だけの確実な自動マッチング ---
-    let myName = "", roomNum = "", myId = "";
+    // --- マルチプレイ同期の完成版 ---
+    let myName = "", roomNum = "", myId = "me-" + Math.random().toString(36).substring(2, 7);
     let peer, isHost = false, hostConn = null;
-    const connections = []; // ホスト用（複数人を繋ぐため）
+    const connections = [];
     const otherPlayers = {};
 
     function initMultiplayer() {
-        myName = prompt("名前を入力", "Player") || "Player";
-        roomNum = prompt("部屋番号を入力 (同じ番号で確実につながります)", "1234") || "1234";
-        
-        // 部屋専用の固定ID（これがカギになります）
+        roomNum = prompt("部屋番号を入力", "1234") || "1234";
         const roomHostId = `slot-room-${roomNum}-host`;
 
-        // まずは「ゲスト（子）」として接続を試みる
-        peer = new Peer(); 
+        peer = new Peer(myId); // 自分のIDでPeer開始
 
-        peer.on('open', (id) => {
-            myId = id;
-            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (相手を探しています...)`;
-            
-            // 部屋の「親」に接続してみる
-            const conn = peer.connect(roomHostId, { reliable: true });
-            
+        peer.on('open', () => {
+            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (検索中...)`;
+            const conn = peer.connect(roomHostId);
             conn.on('open', () => {
-                // 接続成功＝すでに誰かが部屋を作っていた！
-                isHost = false;
-                hostConn = conn;
-                document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (接続完了！)`;
+                isHost = false; hostConn = conn;
+                document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (ゲスト接続中)`;
                 setupConn(conn);
             });
         });
 
-        // もし「親」がいなかったら（エラーが出たら）、自分が「親」になる
         peer.on('error', (err) => {
             if (err.type === 'peer-unavailable') {
-                document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (部屋を作成中...)`;
-                peer.destroy(); // いったん今の接続を破棄
-                
+                peer.destroy();
                 setTimeout(() => {
-                    // 自分を「親（固定ID）」として再登録
-                    peer = new Peer(roomHostId);
-                    peer.on('open', (id) => {
-                        isHost = true;
-                        myId = id;
-                        document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (部屋を作りました！相手を待っています)`;
+                    peer = new Peer(roomHostId); // 自分がホストになる
+                    peer.on('open', () => {
+                        isHost = true; myId = roomHostId;
+                        document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (ホスト待機中)`;
                     });
-                    
-                    // 誰かが入ってきたら受け入れる
                     peer.on('connection', (conn) => {
                         conn.on('open', () => {
                             connections.push(conn);
-                            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (相手が参加しました！)`;
+                            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (プレイヤー参加中)`;
                             setupConn(conn);
                         });
                     });
-                }, 1000); // 念のため1秒待機
+                }, 500);
             }
         });
     }
 
     function setupConn(conn) {
-        conn.on('data', data => { 
+        // 繋がったら即座に自分の位置を送って姿を見せる
+        setTimeout(broadcast, 500);
+
+        conn.on('data', data => {
             if(data.type === 'move') {
-                updateAvatar(data.senderId, data);
-                // 自分が「親」なら、他の「子」全員にこの動きを転送してあげる（3人以上でも見えるようにする）
-                if (isHost) {
-                    connections.forEach(c => {
-                        if (c.peer !== conn.peer && c.open) c.send(data);
-                    });
+                updateAvatar(data.sid, data);
+                if (isHost) { // ホストは中継する
+                    connections.forEach(c => { if (c.peer !== conn.peer && c.open) c.send(data); });
                 }
-            } 
-        });
-        
-        conn.on('close', () => {
-            // 切断されたらアバターを消す処理（今回はシンプルに配列から抜くだけ）
-            if (isHost) {
-                const idx = connections.indexOf(conn);
-                if(idx > -1) connections.splice(idx, 1);
             }
+        });
+        conn.on('close', () => {
+            if (otherPlayers[conn.peer]) { scene.remove(otherPlayers[conn.peer]); delete otherPlayers[conn.peer]; }
         });
     }
 
     function updateAvatar(id, data) {
-        if(id === myId) return; // 自分自身の動きは無視
-        if(!otherPlayers[id]) {
+        if (id === myId) return;
+        if (!otherPlayers[id]) {
             otherPlayers[id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x00aaff }));
             scene.add(otherPlayers[id]);
         }
@@ -212,29 +188,20 @@
     }
 
     function broadcast() {
-        if(!peer || !peer.open) return;
-        // senderIdに「自分のID」を必ず入れて送信
-        const data = { type: 'move', senderId: myId, x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: camera.rotation.y };
-        
-        if (isHost) {
-            // 親はすべての子へ送信
-            connections.forEach(c => { if(c.open) c.send(data); });
-        } else if (hostConn && hostConn.open) {
-            // 子は親へ送信（親が他の人へ転送してくれる）
-            hostConn.send(data);
-        }
+        if (!peer || !peer.open) return;
+        const data = { type: 'move', sid: myId, x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: camera.rotation.y };
+        if (isHost) { connections.forEach(c => { if(c.open) c.send(data); }); }
+        else if (hostConn && hostConn.open) { hostConn.send(data); }
     }
 
-    // --- 操作系 (一切不変) ---
+    // --- 操作系 (維持) ---
     let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0, isMobile = false, joyDir = {x:0, y:0};
     camera.position.set(0, -1, 15);
-
     function updateUIScale() { const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
     window.addEventListener('resize', updateUIScale);
     function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none'; }
     function toggleSlot(o){ updateUIScale(); document.getElementById('ui').classList.toggle('active',o); if(o) document.exitPointerLock(); }
     function closeUI(){ toggleSlot(false); }
-
     const joyContainer = document.getElementById('joystick-container');
     const joyKnob = document.getElementById('joystick-knob');
     joyContainer.addEventListener('touchmove', (e) => {
@@ -246,7 +213,6 @@
         joyDir = {x: dx/50, y: dy/50};
     }, {passive: false});
     joyContainer.addEventListener('touchend', () => { joyKnob.style.transform = `translate(-50%, -50%)`; joyDir = {x:0, y:0}; });
-
     document.addEventListener('mousedown', () => {
         if(document.getElementById('ui').classList.contains('active')) return;
         const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
@@ -280,7 +246,7 @@
             camera.position.add(velocity);
             if(Math.abs(camera.position.x) > 9.5) camera.position.x = Math.sign(camera.position.x) * 9.5;
             if(Math.abs(camera.position.z) > 29.5) camera.position.z = Math.sign(camera.position.z) * 29.5;
-            if(Date.now() - lastBroad > 30) { broadcast(); lastBroad = Date.now(); }
+            if(Date.now() - lastBroad > 50) { broadcast(); lastBroad = Date.now(); }
         }
         renderer.render(scene, camera);
     }
