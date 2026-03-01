@@ -9,14 +9,14 @@
         body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         
-        /* スマホ用ジョイスティック */
         #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
         #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 
-        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #000; background: rgba(255,255,255,0.7); padding: 5px 10px; font-size: 12px; border-radius: 5px; }
+        /* マルチステータス欄に入力機能を追加 */
+        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #000; background: rgba(255,255,255,0.9); padding: 10px; font-size: 12px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+        #multi-status button { cursor: pointer; margin-left: 5px; font-size: 10px; }
 
-        /* スロットUIのリサイズ対応 */
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
         #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
         
@@ -51,7 +51,14 @@
 <div id="crosshair"></div>
 <div id="win-effect-container"></div>
 <div id="three-canvas"></div>
-<div id="multi-status">P2P Connecting...</div>
+
+<div id="multi-status">
+    <div id="peer-id-display">Connecting...</div>
+    <div style="margin-top:5px;">
+        <button onclick="copyMyId()">IDコピー</button>
+        <button onclick="connectToFriend()">相手に接続</button>
+    </div>
+</div>
 
 <div id="ui">
     <div class="slot-container" id="main-container">
@@ -110,7 +117,7 @@
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
 
-    // 床と天井を灰色に変更
+    // 床・天井・壁
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
     const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
@@ -127,23 +134,34 @@
     }
     for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    // --- 名前と部屋の設定 & P2P ---
-    let myName = "", roomNum = "";
+    // --- マルチプレイ (PeerJS) ---
+    let myName = "", roomNum = "", myId = "";
     const peer = new Peer();
     const otherPlayers = {};
     const connections = {};
 
     peer.on('open', id => {
-        myName = prompt("名前を入力してください", "Player") || "Player";
-        roomNum = prompt("部屋番号を入力してください", "1234") || "1234";
-        document.getElementById('multi-status').innerText = `NAME: ${myName} | ROOM: ${roomNum}`;
-        // 簡易的なマッチング：URLに部屋番号を載せて自動接続を促す（実際はサーバーレスだと相手IDが必要）
-        // ここでは相手IDを直接入力するか、ルーム機能を模倣するためにPeer IDの末尾に部屋番号を付与する等の工夫が必要
-        const params = new URLSearchParams(window.location.search);
-        const joinId = params.get('join');
-        if(joinId) { const conn = peer.connect(joinId); conn.on('open', () => setupConn(conn)); }
+        myId = id;
+        document.getElementById('peer-id-display').innerText = `Your ID: ${id.slice(0,6)}`;
+        myName = prompt("名前を入力", "Player") || "Player";
+        roomNum = prompt("部屋番号を入力", "1234") || "1234";
     });
-    peer.on('connection', conn => setupConn(conn));
+
+    peer.on('connection', conn => {
+        conn.on('open', () => setupConn(conn));
+    });
+
+    function connectToFriend() {
+        const friendId = prompt("相手のIDを入力してください");
+        if(friendId) {
+            const conn = peer.connect(friendId);
+            conn.on('open', () => setupConn(conn));
+        }
+    }
+
+    function copyMyId() {
+        navigator.clipboard.writeText(myId).then(() => alert("IDをコピーしました！相手に送ってください。"));
+    }
 
     function setupConn(conn) {
         connections[conn.peer] = conn;
@@ -151,7 +169,7 @@
     }
 
     function updateAvatar(id, data) {
-        if(data.room !== roomNum) return; // 同じ部屋番号のみ表示
+        if(data.room !== roomNum) return;
         if(!otherPlayers[id]) {
             otherPlayers[id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x00aaff }));
             scene.add(otherPlayers[id]);
@@ -161,11 +179,12 @@
     }
 
     function broadcast() {
+        if(!myId) return;
         const data = { type: 'move', name: myName, room: roomNum, x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: camera.rotation.y };
         for(let id in connections) { if(connections[id].open) connections[id].send(data); }
     }
 
-    // --- 操作系 (スマホ対応) ---
+    // --- 操作系 ---
     let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0, isMobile = false, joyDir = {x:0, y:0};
     camera.position.set(0, -1, 15);
 
