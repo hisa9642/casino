@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Multiplayer Fixed</title>
+    <title>8-LINE SLOT - Multiplayer Final</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
@@ -117,8 +117,8 @@
     }
     for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    // --- マルチプレイ同期の完成版 ---
-    let myName = "", roomNum = "", myId = "me-" + Math.random().toString(36).substring(2, 7);
+    // --- マルチプレイ同期システム ---
+    let roomNum = "", myId = "p-" + Math.random().toString(36).substring(2, 7);
     let peer, isHost = false, hostConn = null;
     const connections = [];
     const otherPlayers = {};
@@ -127,14 +127,15 @@
         roomNum = prompt("部屋番号を入力", "1234") || "1234";
         const roomHostId = `slot-room-${roomNum}-host`;
 
-        peer = new Peer(myId); // 自分のIDでPeer開始
+        peer = new Peer(myId);
 
-        peer.on('open', () => {
-            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (検索中...)`;
+        peer.on('open', (id) => {
+            myId = id;
+            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (接続中...)`;
             const conn = peer.connect(roomHostId);
             conn.on('open', () => {
                 isHost = false; hostConn = conn;
-                document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (ゲスト接続中)`;
+                document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (接続完了)`;
                 setupConn(conn);
             });
         });
@@ -144,43 +145,50 @@
                 peer.destroy();
                 setTimeout(() => {
                     peer = new Peer(roomHostId); // 自分がホストになる
-                    peer.on('open', () => {
-                        isHost = true; myId = roomHostId;
-                        document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (ホスト待機中)`;
+                    peer.on('open', (id) => {
+                        isHost = true; myId = id;
+                        document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (待機中)`;
                     });
                     peer.on('connection', (conn) => {
                         conn.on('open', () => {
                             connections.push(conn);
-                            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (プレイヤー参加中)`;
+                            document.getElementById('multi-status').innerText = `ROOM: ${roomNum} (通信中)`;
                             setupConn(conn);
                         });
                     });
-                }, 500);
+                }, 300);
             }
         });
     }
 
     function setupConn(conn) {
-        // 繋がったら即座に自分の位置を送って姿を見せる
-        setTimeout(broadcast, 500);
+        // 接続直後に自分の姿を送る
+        broadcast();
 
         conn.on('data', data => {
-            if(data.type === 'move') {
+            if (data.type === 'move') {
                 updateAvatar(data.sid, data);
-                if (isHost) { // ホストは中継する
+                // ホストは全員にリレー（中継）する
+                if (isHost) {
                     connections.forEach(c => { if (c.peer !== conn.peer && c.open) c.send(data); });
                 }
             }
         });
+
         conn.on('close', () => {
-            if (otherPlayers[conn.peer]) { scene.remove(otherPlayers[conn.peer]); delete otherPlayers[conn.peer]; }
+            if (otherPlayers[conn.peer]) {
+                scene.remove(otherPlayers[conn.peer]);
+                delete otherPlayers[conn.peer];
+            }
         });
     }
 
     function updateAvatar(id, data) {
         if (id === myId) return;
         if (!otherPlayers[id]) {
-            otherPlayers[id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({ color: 0x00aaff }));
+            const geo = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x00aaff });
+            otherPlayers[id] = new THREE.Mesh(geo, mat);
             scene.add(otherPlayers[id]);
         }
         otherPlayers[id].position.set(data.x, data.y - 0.5, data.z);
@@ -190,8 +198,11 @@
     function broadcast() {
         if (!peer || !peer.open) return;
         const data = { type: 'move', sid: myId, x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: camera.rotation.y };
-        if (isHost) { connections.forEach(c => { if(c.open) c.send(data); }); }
-        else if (hostConn && hostConn.open) { hostConn.send(data); }
+        if (isHost) {
+            connections.forEach(c => { if (c.open) c.send(data); });
+        } else if (hostConn && hostConn.open) {
+            hostConn.send(data);
+        }
     }
 
     // --- 操作系 (維持) ---
@@ -230,7 +241,6 @@
         loop(); 
     }
 
-    let lastBroad = 0;
     function loop() {
         requestAnimationFrame(loop);
         if (!document.getElementById('ui').classList.contains('active')) {
@@ -246,7 +256,9 @@
             camera.position.add(velocity);
             if(Math.abs(camera.position.x) > 9.5) camera.position.x = Math.sign(camera.position.x) * 9.5;
             if(Math.abs(camera.position.z) > 29.5) camera.position.z = Math.sign(camera.position.z) * 29.5;
-            if(Date.now() - lastBroad > 50) { broadcast(); lastBroad = Date.now(); }
+            
+            // 常に通信。ただし重くならないよう制御
+            broadcast();
         }
         renderer.render(scene, camera);
     }
