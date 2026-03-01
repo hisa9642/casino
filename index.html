@@ -2,155 +2,190 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Multiplayer Slot - Connection Fixed</title>
+    <title>8-LINE SLOT - Absolute Visibility</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #info { position: fixed; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 10px; z-index: 100; pointer-events: none; border-radius: 5px; line-height: 1.5; }
-        #canvas-container { width: 100vw; height: 100vh; }
+        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        #debug-log { 
+            position: fixed; bottom: 10px; left: 10px; width: 300px; height: 150px;
+            background: rgba(0,0,0,0.8); color: #0f0; font-size: 10px; padding: 10px;
+            overflow-y: auto; z-index: 1000; pointer-events: none; border: 1px solid #0f0;
+        }
+        #ui-layer { position: fixed; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 10px; z-index: 1000; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-<div id="info">
-    <div>部屋番号: <span id="room-id">-</span></div>
-    <div>ステータス: <span id="status">初期化中...</span></div>
-    <div>接続人数: <span id="peer-count">0</span>人</div>
-    <div style="font-size: 0.8em; margin-top:5px;">操作: WASDで移動 / マウスで視点</div>
+<div id="ui-layer">
+    <div>ROOM: <span id="room-display">-</span></div>
+    <div>STATUS: <span id="status-display">待機中</span></div>
+    <div>PLAYER: <span id="count-display">0</span>人</div>
 </div>
-<div id="canvas-container"></div>
+<div id="debug-log">--- DEBUG LOG ---<br></div>
 
 <script>
-// --- 設定 ---
-const roomNum = prompt("部屋番号を決めてください (例: 777)", "777") || "777";
-const myId = "user-" + Math.random().toString(36).substring(2, 8);
-const hostId = "slot-room-" + roomNum;
+// --- 基本設定 ---
+const roomNum = prompt("部屋番号を入力", "777") || "777";
+const myId = "P" + Math.floor(Math.random() * 9000 + 1000);
+const hostId = "slot-room-" + roomNum + "-host";
+document.getElementById('room-display').innerText = roomNum;
 
-document.getElementById('room-id').innerText = roomNum;
+function log(msg) {
+    const div = document.getElementById('debug-log');
+    div.innerHTML += `> ${msg}<br>`;
+    div.scrollTop = div.scrollHeight;
+    console.log(msg);
+}
 
-// --- 3D Scene ---
+// --- 3D描画 (絶対に映る設定) ---
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.getElementById('canvas-container').appendChild(renderer.domElement);
+renderer.setClearColor(0x222222);
+document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const grid = new THREE.GridHelper(100, 100, 0x888888, 0x444444);
-grid.position.y = -1;
-scene.add(grid);
+// ライトなしでも見える素材 (MeshBasicMaterial) を使用
+const floor = new THREE.Mesh(
+    new THREE.GridHelper(100, 50, 0xffffff, 0x444444),
+    new THREE.MeshBasicMaterial({ visible: false }) // GridHelperを表示するためのダミー
+);
+scene.add(new THREE.GridHelper(100, 50, 0x00ff00, 0x222222));
 
-camera.position.set(Math.random() * 5, 0, 10);
+camera.position.set(0, 1.6, 5);
 
-const otherPlayers = {};
+const avatars = {};
 
-function createAvatar(id) {
-    const color = Math.random() * 0xffffff;
-    const mesh = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.5, 1, 4, 8),
-        new THREE.MeshStandardMaterial({ color: color })
-    );
+function addAvatar(id) {
+    log(`アバター作成開始: ${id}`);
+    // ライト不要の「発光する箱」にする
+    const geometry = new THREE.BoxGeometry(1, 2, 1);
+    const material = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.y = 1;
     scene.add(mesh);
+    avatars[id] = mesh;
     return mesh;
 }
 
-// --- Network (PeerJS) ---
+// --- 通信 (PeerJS) ---
 let peer = new Peer(myId);
 let connections = [];
 
-// 自分がホスト（親）を試みる
-const peerHost = new Peer(hostId);
+peer.on('open', (id) => {
+    log(`自分のID: ${id}`);
+    tryConnectHost();
+});
 
-peerHost.on('open', () => {
-    document.getElementById('status').innerText = "あなたがホスト（親）です";
-    peerHost.on('connection', (conn) => {
-        setupConn(conn);
+function tryConnectHost() {
+    const conn = peer.connect(hostId);
+    setupConnection(conn);
+
+    // ホストになれるかチェック（数秒後に接続できてなければ自分がホスト）
+    setTimeout(() => {
+        if (connections.length === 0) {
+            log("ホストが見つかりません。自分がホストになります...");
+            startAsHost();
+        }
+    }, 3000);
+}
+
+function startAsHost() {
+    const hostPeer = new Peer(hostId);
+    hostPeer.on('open', () => {
+        document.getElementById('status-display').innerText = "HOST";
+        log("ホストとして待機中...");
     });
-});
+    hostPeer.on('connection', (conn) => {
+        log(`プレイヤー参加: ${conn.peer}`);
+        setupConnection(conn);
+    });
+}
 
-peerHost.on('error', (err) => {
-    // ホストIDが既に使われている＝誰かが既にホストをやっている場合
-    if (err.type === 'unavailable-id') {
-        document.getElementById('status').innerText = "ホストに接続中...";
-        const conn = peer.connect(hostId);
-        setupConn(conn);
-    }
-});
-
-function setupConn(conn) {
+function setupConnection(conn) {
     conn.on('open', () => {
-        connections.push(conn);
-        document.getElementById('peer-count').innerText = connections.length;
-        // 接続できたら即座に自分の位置を送る
-        sendPos();
+        if (!connections.find(c => c.peer === conn.peer)) {
+            connections.push(conn);
+        }
+        document.getElementById('status-display').innerText = "CONNECTED";
+        document.getElementById('count-display').innerText = connections.length;
+        log(`${conn.peer} と接続完了`);
     });
 
     conn.on('data', (data) => {
-        if (data.type === 'pos') {
-            if (!otherPlayers[data.id]) {
-                otherPlayers[data.id] = createAvatar(data.id);
+        if (data.type === 'move') {
+            if (!avatars[data.id]) {
+                addAvatar(data.id);
             }
-            otherPlayers[data.id].position.set(data.x, data.y, data.z);
-            
-            // ホスト（親）なら、受け取ったデータを全員に配る（中継）
-            if (peerHost.open) {
-                connections.forEach(c => {
-                    if (c.open && c.peer !== conn.peer) c.send(data);
-                });
-            }
-        }
-    });
-
-    conn.on('close', () => {
-        // 切断したアバターを消す
-        if (otherPlayers[conn.peer]) {
-            scene.remove(otherPlayers[conn.peer]);
-            delete otherPlayers[conn.peer];
+            // 座標を強制的に適用
+            avatars[data.id].position.set(data.x, data.y, data.z);
+            avatars[data.id].rotation.y = data.ry;
         }
     });
 }
 
-function sendPos() {
-    const data = { type: 'pos', id: myId, x: camera.position.x, y: camera.position.y - 0.5, z: camera.position.z };
-    connections.forEach(c => { if (c.open) c.send(data); });
+function broadcast() {
+    const data = {
+        type: 'move',
+        id: myId,
+        x: camera.position.x,
+        y: camera.position.y - 1, // 地面との調整
+        z: camera.position.z,
+        ry: camera.rotation.y
+    };
+    connections.forEach(c => {
+        if (c.open) c.send(data);
+    });
 }
 
-// --- Controls ---
-let move = { f: 0, b: 0, l: 0, r: 0 };
-document.addEventListener('keydown', e => {
-    if (e.key === 'w') move.f = 1; if (e.key === 's') move.b = 1;
-    if (e.key === 'a') move.l = 1; if (e.key === 'd') move.r = 1;
-});
-document.addEventListener('keyup', e => {
-    if (e.key === 'w') move.f = 0; if (e.key === 's') move.b = 0;
-    if (e.key === 'a') move.l = 0; if (e.key === 'd') move.r = 0;
-});
+// --- 操作 ---
+const keys = {};
+window.onkeydown = (e) => keys[e.code] = true;
+window.onkeyup = (e) => keys[e.code] = false;
 
 document.addEventListener('mousedown', () => renderer.domElement.requestPointerLock());
-document.addEventListener('mousemove', e => {
+
+function updateMovement() {
+    const speed = 0.1;
+    const direction = new THREE.Vector3();
+    if (keys['KeyW']) direction.z -= speed;
+    if (keys['KeyS']) direction.z += speed;
+    if (keys['KeyA']) direction.x -= speed;
+    if (keys['KeyD']) direction.x += speed;
+
+    direction.applyQuaternion(camera.quaternion);
+    direction.y = 0;
+    camera.position.add(direction);
+}
+
+// --- ループ ---
+function animate() {
+    requestAnimationFrame(animate);
+    updateMovement();
+    
+    // 自分の回転を更新
     if (document.pointerLockElement === renderer.domElement) {
-        camera.rotation.y -= e.movementX * 0.003;
+        // マウス移動は省略せずに実装が必要
+    }
+
+    if (connections.length > 0) {
+        broadcast();
+    }
+    
+    renderer.render(scene, camera);
+}
+
+// マウス視点移動
+window.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement === renderer.domElement) {
+        camera.rotation.y -= e.movementX * 0.002;
     }
 });
 
-// --- Loop ---
-function loop() {
-    requestAnimationFrame(loop);
+animate();
 
-    const dir = new THREE.Vector3(move.r - move.l, 0, move.b - move.f).normalize();
-    dir.applyQuaternion(camera.quaternion);
-    dir.y = 0;
-    camera.position.addScaledVector(dir, 0.1);
-
-    if (connections.length > 0) {
-        sendPos();
-    }
-
-    renderer.render(scene, camera);
-}
-loop();
-
+// ウィンドウリサイズ対応
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
