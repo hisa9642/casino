@@ -8,24 +8,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
-        body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
         #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #000; background: rgba(255,255,255,0.7); padding: 5px 10px; font-size: 12px; border-radius: 5px; white-space: pre-line; pointer-events: none; }
-        
-        /* チャットUI (サーバー保存なし) */
         #chat-container { position: fixed; bottom: 50px; left: 20px; z-index: 2500; width: 250px; pointer-events: auto; }
-        #chat-box { height: 150px; overflow-y: auto; background: rgba(0,0,0,0.5); color: white; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 5px; pointer-events: none; }
-        #chat-input { width: 180px; background: rgba(255,255,255,0.8); border: none; padding: 5px; border-radius: 3px; }
-        #chat-send { padding: 5px; cursor: pointer; }
-
+        #chat-box { height: 120px; overflow-y: auto; background: rgba(0,0,0,0.5); color: white; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 5px; pointer-events: none; }
+        #chat-input { width: 170px; background: rgba(255,255,255,0.8); border: none; padding: 5px; border-radius: 3px; }
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
         #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
-        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
+        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; position: relative; }
         .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
-        .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        @media (max-width: 850px) { .paytable { display: none; } }
+        .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
         #status-text { color: #f00; font-size: 2rem; }
         .reels { display: flex; gap: 10px; background: #000; padding: 15px; margin: 20px 0; border: 6px solid #666; }
         .reel-box { width: 110px; height: 240px; background: #fff; overflow: hidden; position: relative; }
@@ -33,6 +30,7 @@
         .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 3.2rem; border-bottom: 1px solid #ddd; box-sizing: border-box; color: #000; }
         .stats { color: #f00; font-size: 1.8rem; display: flex; gap: 30px; margin-bottom: 15px; }
         .stop-btn { width: 95px; height: 95px; border-radius: 50%; background: #ccc; border: 6px solid #999; font-weight: bold; cursor: pointer; }
+        #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; text-align: center; }
     </style>
 </head>
 <body onload="initGame()" oncontextmenu="return false;">
@@ -40,20 +38,21 @@
 <button id="mobile-toggle" onclick="toggleMobile()">スマホ操作 ON/OFF</button>
 <div id="joystick-container"><div id="joystick-knob"></div></div>
 <div id="three-canvas"></div>
-<div id="multi-status">Connecting...</div>
+<div id="multi-status">Initializing...</div>
+<div id="win-effect-container"></div>
 
 <div id="chat-container">
     <div id="chat-box"></div>
-    <input type="text" id="chat-input" placeholder="Chat..." onfocus="stopMove(true)" onblur="stopMove(false)">
-    <button id="chat-send" onclick="sendChat()">送</button>
+    <input type="text" id="chat-input" placeholder="Chat..." onfocus="isTyping=true" onblur="isTyping=false">
+    <button onclick="sendChat()">送</button>
 </div>
 
 <div id="ui">
-    <div class="slot-container" id="main-container">
+    <div class="slot-container">
         <div class="paytable" id="pay-list"></div>
-        <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
-            <button onclick="resetGame()" style="background:#822;color:#fff;border:none;padding:5px 10px;border-radius:5px;">RESET</button>
-            <button onclick="closeUI()" style="background:#444;color:#fff;border:none;padding:5px 10px;border-radius:5px;">EXIT</button>
+        <div style="width:100%; display:flex; justify-content:space-between; padding:10px;">
+            <button onclick="resetGame()" style="background:#822;color:#fff;border:none;padding:5px 15px;border-radius:5px;">RESET</button>
+            <button onclick="closeUI()" style="background:#444;color:#fff;border:none;padding:5px 15px;border-radius:5px;">EXIT</button>
         </div>
         <div class="lcd"><div id="status-text">READY</div></div>
         <div class="reels">
@@ -62,8 +61,8 @@
             <div class="reel-box"><div id="s2" class="strip"></div></div>
         </div>
         <div class="stats"><div>coin: <span id="credit">100</span></div><div>BET: <span id="bet-val">3</span></div></div>
-        <div class="lever" onclick="start()" style="width:60px;height:60px;background:radial-gradient(#666,#222);border-radius:50%;cursor:pointer;"></div>
-        <div style="display:flex; gap:10px; margin-top:10px;">
+        <div class="lever" onclick="start()" style="width:65px;height:65px;background:radial-gradient(#666,#222);border-radius:50%;border:4px solid #777;cursor:pointer;"></div>
+        <div style="display:flex; gap:15px; margin-top:15px;">
             <button id="b0" class="stop-btn" disabled onclick="stopR(0)">STOP</button>
             <button id="b1" class="stop-btn" disabled onclick="stopR(1)">STOP</button>
             <button id="b2" class="stop-btn" disabled onclick="stopR(2)">STOP</button>
@@ -72,127 +71,130 @@
 </div>
 
 <script>
-    // --- 基本設定 ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
     let credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0], REELS_DATA = [[],[],[]];
-    let isFever = false, isSuperFever = false, feverRounds = 0;
-    
-    // --- 3D & スマホ視点操作 ---
+    let isTyping = false, isMob = false, joyX = 0, joyY = 0, tp = 0, ty = 0, ts = {x:0, y:0};
+
+    // 3D初期化
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('three-canvas').appendChild(renderer.domElement);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     camera.position.set(0, -1, 15);
 
-    let targetPitch = 0, targetYaw = 0, velocity = new THREE.Vector3(), moveDir = {f:0,b:0,l:0,r:0}, isMobile = false, isTyping = false;
-    let touchStart = {x:0, y:0};
-
-    // スマホ視点変更 (画面右半分でスワイプ)
-    window.addEventListener('touchstart', (e) => { touchStart.x = e.touches[0].clientX; touchStart.y = e.touches[0].clientY; }, {passive:false});
-    window.addEventListener('touchmove', (e) => {
-        if(!isMobile || isTyping) return;
-        const touch = e.touches[0];
-        // 画面の右側を触っている時だけ回転
-        if(touch.clientX > window.innerWidth / 2) {
-            const dx = touch.clientX - touchStart.x;
-            const dy = touch.clientY - touchStart.y;
-            targetYaw -= dx * 0.005;
-            targetPitch -= dy * 0.005;
-            targetPitch = Math.max(-1.4, Math.min(1.4, targetPitch));
-            touchStart.x = touch.clientX; touchStart.y = touch.clientY;
+    // スマホ視点操作（右半分スワイプ）
+    window.addEventListener('touchstart', e => { ts.x = e.touches[0].clientX; ts.y = e.touches[0].clientY; });
+    window.addEventListener('touchmove', e => {
+        if(!isMob || isTyping) return;
+        const t = e.touches[0];
+        if(t.clientX > window.innerWidth/2) {
+            ty -= (t.clientX - ts.x) * 0.006;
+            tp -= (t.clientY - ts.y) * 0.006;
+            tp = Math.max(-1.4, Math.min(1.4, tp));
+            ts.x = t.clientX; ts.y = t.clientY;
+        } else {
+            const r = document.getElementById('joystick-container').getBoundingClientRect();
+            joyX = (t.clientX - (r.left + 60)) / 60;
+            joyY = (t.clientY - (r.top + 60)) / 60;
+            document.getElementById('joystick-knob').style.transform = `translate(calc(-50% + ${joyX*40}px), calc(-50% + ${joyY*40}px))`;
         }
-    }, {passive:false});
+    });
+    window.addEventListener('touchend', () => { joyX = 0; joyY = 0; document.getElementById('joystick-knob').style.transform = `translate(-50%, -50%)`; });
 
-    // --- 通信 (P2P中継・チャット) ---
-    const roomNum = prompt("部屋番号", "777") || "777";
-    const myId = "P" + Math.floor(Math.random() * 9000 + 1000);
-    const hostId = "slot-rm-" + roomNum + "-host";
+    // 通信
+    const room = prompt("Room", "777") || "777";
+    const myId = "P" + Math.floor(Math.random()*9000);
     const peer = new Peer(myId, { config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] } });
-    let connections = [], hostConn = null, otherPlayers = {};
+    let conns = [], hostConn = null, others = {};
 
-    peer.on('open', (id) => { document.getElementById('multi-status').innerText = `ID: ${id}\nROOM: ${roomNum}`; tryConnect(); });
-
-    function tryConnect() {
-        const c = peer.connect(hostId);
-        c.on('open', () => { hostConn = c; setupConn(c); });
-        setTimeout(() => { if(!hostConn) startHost(); }, 2000);
+    peer.on('open', id => { document.getElementById('multi-status').innerText = `ID: ${id}\nROOM: ${room}`; tryConn(); });
+    function tryConn() {
+        const c = peer.connect("slot-v5-" + room + "-host");
+        c.on('open', () => { hostConn = c; setup(c); });
+        setTimeout(() => { if(!hostConn) startHost(); }, 1500);
     }
-
     function startHost() {
-        const hp = new Peer(hostId, { config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] } });
-        hp.on('open', () => document.getElementById('multi-status').innerText = `HOSTING\nROOM: ${roomNum}`);
-        hp.on('connection', c => { connections.push(c); setupConn(c); });
+        const hp = new Peer("slot-v5-" + room + "-host", { config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] } });
+        hp.on('open', () => document.getElementById('multi-status').innerText = `HOSTING\nROOM: ${room}`);
+        hp.on('connection', c => { conns.push(c); setup(c); });
     }
-
-    function setupConn(c) {
+    function setup(c) {
         c.on('data', d => {
-            if(d.type === 'move') updateAvatar(d);
+            if(d.type === 'move') {
+                if(!others[d.id]) { others[d.id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5,1,4,8), new THREE.MeshStandardMaterial({color:0x00aaff})); scene.add(others[d.id]); }
+                others[d.id].position.set(d.x, d.y-0.5, d.z); others[d.id].rotation.y = d.ry;
+            }
             if(d.type === 'chat') addChat(d.msg, d.id);
-            if(peer.id === hostId) connections.forEach(conn => { if(conn.open && conn.peer !== c.peer) conn.send(d); });
+            if(peer.id.includes("-host")) conns.forEach(cn => { if(cn.open && cn.peer !== c.peer) cn.send(d); });
         });
     }
-
-    function updateAvatar(d) {
-        if(!otherPlayers[d.id]) {
-            otherPlayers[d.id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5,1,4,8), new THREE.MeshStandardMaterial({color:0x00aaff}));
-            scene.add(otherPlayers[d.id]);
-        }
-        otherPlayers[d.id].position.set(d.x, d.y-0.5, d.z);
-        otherPlayers[d.id].rotation.y = d.ry;
-    }
-
     function sendChat() {
-        const input = document.getElementById('chat-input');
-        if(!input.value) return;
-        const d = { type: 'chat', msg: input.value, id: myId };
-        addChat(input.value, "You");
-        if(hostConn) hostConn.send(d);
-        else connections.forEach(c => c.send(d));
-        input.value = '';
+        const i = document.getElementById('chat-input'); if(!i.value) return;
+        const d = {type:'chat', msg:i.value, id:myId}; addChat(i.value, "You");
+        if(hostConn) hostConn.send(d); else conns.forEach(cn => cn.send(d));
+        i.value = '';
+    }
+    function addChat(m, s) {
+        const b = document.getElementById('chat-box'); b.innerHTML += `<div><b>${s}:</b> ${m}</div>`; b.scrollTop = b.scrollHeight;
     }
 
-    function addChat(msg, sender) {
-        const box = document.getElementById('chat-box');
-        box.innerHTML += `<div><b>${sender}:</b> ${msg}</div>`;
-        box.scrollTop = box.scrollHeight;
+    // スロット
+    function shuffleReels() {
+        const base = ['🍒','🍒','🍇','🍉','🔔','💎','🎰','⭐','7️⃣'];
+        [0,1,2].forEach(i => {
+            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5);
+            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join('');
+        });
     }
-
-    // --- スロットロジック (省略なし) ---
-    function shuffleReels() { [0,1,2].forEach(i => { REELS_DATA[i] = Object.keys(PAYS).sort(()=>Math.random()-0.5); document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); }); }
-    function start() { if(speed.some(s=>s>0) || credit < bet) return; credit -= bet; speed = [55,55,55]; stopping = [false,false,false]; [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false); animateSlot(); }
+    function start() {
+        if(speed.some(s=>s>0) || credit < bet) return;
+        credit -= bet; document.getElementById('credit').innerText = credit;
+        speed = [55,55,55]; stopping = [false,false,false];
+        [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false);
+        animateSlot();
+    }
     function stopR(i) { let idx = Math.ceil(Math.abs(pos[i])/80)+1; targetPos[i] = -(idx*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
-    function animateSlot() { let m = false; [0,1,2].forEach(i => { if(speed[i]>0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.2; } else { pos[i]-=speed[i]; if(pos[i]<=-800) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } }); if(m) requestAnimationFrame(animateSlot); }
-
-    // --- 実行 & ループ ---
-    function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none'; }
-    function stopMove(b) { isTyping = b; }
-    function closeUI() { document.getElementById('ui').classList.remove('active'); }
-    function initGame() { 
-        shuffleReels(); 
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(30,60), new THREE.MeshStandardMaterial({color:0x888888})); floor.rotation.x=-Math.PI/2; floor.position.y=-4; scene.add(floor);
-        const m = new THREE.Mesh(new THREE.BoxGeometry(2,4,1.2), new THREE.MeshStandardMaterial({color:0x111111})); m.position.set(-8.5, -2, 0); scene.add(m);
-        loop(); 
+    function animateSlot() {
+        let m = false;
+        [0,1,2].forEach(i => {
+            if(speed[i]>0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } else { pos[i]-=speed[i]; if(pos[i]<=-1000) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; }
+        });
+        if(m) requestAnimationFrame(animateSlot);
     }
 
-    let lastB = 0;
+    function toggleMobile() { isMob = !isMob; document.getElementById('joystick-container').style.display = isMob ? 'block' : 'none'; }
+    function closeUI() { document.getElementById('ui').classList.remove('active'); }
+    function updateUIScale() { const s = Math.min(window.innerWidth/500, window.innerHeight/820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
+    
+    function initGame() {
+        shuffleReels(); updateUIScale();
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(50,100), new THREE.MeshStandardMaterial({color:0x888888})); floor.rotation.x=-Math.PI/2; floor.position.y=-4; scene.add(floor);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(2,4,1.2), new THREE.MeshStandardMaterial({color:0x111111})); m.position.set(-8.5, -2, 0); scene.add(m);
+        loop();
+    }
+
+    let lastS = 0;
     function loop() {
         requestAnimationFrame(loop);
         if(!document.getElementById('ui').classList.contains('active') && !isTyping) {
-            camera.rotation.set(targetPitch, targetYaw, 0, 'YXZ');
-            let wd = new THREE.Vector3();
-            if(isMobile) { /* ジョイスティック処理は前回同様 */ }
-            // 移動処理... (既存のmoveDirロジック)
-            if(Date.now() - lastB > 50) {
+            camera.rotation.set(tp, ty, 0, 'YXZ');
+            if(isMob && (Math.abs(joyX)>0.1 || Math.abs(joyY)>0.1)) {
+                let v = new THREE.Vector3(joyX, 0, joyY).applyQuaternion(camera.quaternion); v.y=0; camera.position.addScaledVector(v.normalize(), 0.15);
+            }
+            if(Date.now() - lastS > 50) {
                 const d = {type:'move', id:myId, x:camera.position.x, y:camera.position.y, z:camera.position.z, ry:camera.rotation.y};
-                if(hostConn) hostConn.send(d); else connections.forEach(c => c.send(d));
-                lastB = Date.now();
+                if(hostConn) hostConn.send(d); else conns.forEach(cn => cn.send(d));
+                lastS = Date.now();
             }
         }
         renderer.render(scene, camera);
     }
-    // キーボード操作等は維持
+    document.addEventListener('mousedown', () => { 
+        if(!isMob && !document.getElementById('ui').classList.contains('active')) document.getElementById('ui').classList.add('active');
+    });
+    window.addEventListener('resize', updateUIScale);
     document.addEventListener('keydown', e => { if(e.key==='Enter') sendChat(); });
 </script>
 </body>
