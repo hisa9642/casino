@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>8-LINE SLOT - Multiplay Mode</title>
+    <title>8-LINE SLOT - Multiplay Integrated</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
@@ -93,7 +93,7 @@
         });
     }
 
-    // --- 3D 空間 (床・天井の色指定を維持) ---
+    // --- 3D 空間 ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -105,7 +105,7 @@
 
     const machines = [];
     function buildRoom() {
-        // 床と天井を灰色に維持
+        // 床・天井 (最新の灰色設定)
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 }));
         floor.rotation.x = -Math.PI/2; floor.position.y = -4; scene.add(floor);
         const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 }));
