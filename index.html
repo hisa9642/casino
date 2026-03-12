@@ -2,300 +2,225 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>8-LINE SLOT - Private Multiplay</title>
+    <title>3D 8-LINE SLOT - Multiplay</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root { --gold: #ffd700; --fever: #ff0000; }
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         
-        /* スマホUI */
-        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 3000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
-        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; z-index: 2000; display: none; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        
-        /* チャット */
-        #chat-container { position: fixed; bottom: 50px; left: 20px; z-index: 2500; width: 250px; }
-        #chat-box { height: 120px; overflow-y: auto; background: rgba(0,0,0,0.7); color: #0f0; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 5px; pointer-events: none; border: 1px solid #333; }
-        #chat-input-area { display: flex; gap: 5px; pointer-events: auto; }
-        #chat-input { flex: 1; background: rgba(255,255,255,0.9); border: none; padding: 8px; border-radius: 3px; pointer-events: auto; }
-        #chat-send { background: #444; color: #fff; border: 1px solid #fff; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
+        /* UI関連 */
+        #multi-status { position: fixed; top: 10px; right: 10px; z-index: 2000; color: #0f0; background: rgba(0,0,0,0.7); padding: 8px; font-size: 12px; border-radius: 5px; pointer-events: none; }
+        #mobile-toggle { position: fixed; top: 10px; left: 10px; z-index: 2000; padding: 10px; cursor: pointer; }
+        #joystick-container { position: fixed; bottom: 30px; left: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; display: none; z-index: 2000; }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); }
 
-        /* マルチステータス */
-        #multi-status { position: fixed; top: 20px; right: 20px; z-index: 3000; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px 12px; font-size: 12px; border-radius: 5px; border: 1px solid #0f0; pointer-events: none; white-space: pre-line; }
-
-        /* スロットUI */
+        /* スロット画面 */
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
         #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
-        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
-        .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
+        .slot-container { width: 450px; height: 750px; background: #222; border: 8px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; color: white; }
         
-        .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
-        #fever-label { color: #f00; font-size: 1.6rem; visibility: hidden; animation: blink 0.4s infinite alternate; }
-        #status-text { color: #f00; font-size: 2rem; }
-        @keyframes blink { from { opacity: 1; } to { opacity: 0.1; } }
+        .lcd { width: 80%; height: 100px; background: #000; margin-top: 20px; border: 3px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #status-text { color: #f00; font-size: 1.8rem; }
+        
+        .reels { display: flex; gap: 8px; background: #000; padding: 10px; margin: 15px 0; border: 4px solid #555; }
+        .reel-box { width: 100px; height: 240px; background: #fff; overflow: hidden; position: relative; }
+        .strip { position: absolute; width: 100%; top: 0; }
+        .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: #000; border-bottom: 1px solid #ddd; }
 
-        .reels { display: flex; gap: 10px; background: #000; padding: 15px; margin: 20px 0; border: 6px solid #666; }
-        .reel-box { width: 110px; height: 240px; background: #fff; overflow: hidden; position: relative; }
-        .strip { position: absolute; width: 100%; top: 0; left: 0; }
-        .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 3.2rem; border-bottom: 1px solid #ddd; box-sizing: border-box; color: #000; }
-        
-        .stats { color: #f00; font-size: 1.8rem; display: flex; gap: 30px; margin-bottom: 15px; }
-        .stop-btn { width: 95px; height: 95px; border-radius: 50%; background: #ccc; border: 6px solid #999; font-weight: bold; cursor: pointer; }
-        #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; text-align: center; width: 100%; }
-        .win-pop { color: #f00; font-size: 4rem; font-weight: bold; text-shadow: 0 0 20px #fff; animation: popIn 0.5s forwards; }
-        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        .stop-btn { width: 80px; height: 80px; border-radius: 50%; background: #ccc; cursor: pointer; font-weight: bold; border: 4px solid #999; }
+        #win-effect-container { position: fixed; top: 30%; width: 100%; text-align: center; z-index: 2000; pointer-events: none; }
+        .win-pop { color: gold; font-size: 4rem; font-weight: bold; text-shadow: 0 0 10px #000; animation: pop 0.5s ease-out; }
+        @keyframes pop { 0% { transform: scale(0); } 100% { transform: scale(1.2); } }
     </style>
 </head>
-<body onload="initGame()">
+<body onload="initAll()">
 
-<button id="mobile-toggle" onclick="toggleMobile()">スマホ操作 ON/OFF</button>
+<button id="mobile-toggle" onclick="toggleMobile()">Mobile ON/OFF</button>
 <div id="joystick-container"><div id="joystick-knob"></div></div>
 <div id="three-canvas"></div>
-<div id="multi-status">Connecting...</div>
+<div id="multi-status">P2P: Initializing...</div>
 <div id="win-effect-container"></div>
-
-<div id="chat-container">
-    <div id="chat-box"></div>
-    <div id="chat-input-area">
-        <input type="text" id="chat-input" placeholder="Chat..." onfocus="isTyping=true" onblur="isTyping=false">
-        <button id="chat-send" onclick="sendChat()">送</button>
-    </div>
-</div>
 
 <div id="ui">
     <div class="slot-container">
-        <div class="paytable" id="pay-list"></div>
-        <div style="width:100%; display:flex; justify-content:space-between; padding:10px;">
-            <button onclick="resetGame()" style="background:#822;color:#fff;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">RESET</button>
-            <button onclick="closeUI()" style="background:#444;color:#fff;border:none;padding:5px 15px;border-radius:5px;cursor:pointer;">EXIT</button>
-        </div>
-        <div class="lcd"><div id="fever-label">🔥 FEVER TIME 🔥</div><div id="status-text">READY</div></div>
+        <div style="margin-top:10px;"><button onclick="closeUI()">EXIT</button></div>
+        <div class="lcd"><div id="status-text">READY</div></div>
         <div class="reels">
             <div class="reel-box"><div id="s0" class="strip"></div></div>
             <div class="reel-box"><div id="s1" class="strip"></div></div>
             <div class="reel-box"><div id="s2" class="strip"></div></div>
         </div>
-        <div class="stats"><div>coin: <span id="credit">100</span></div><div>BET: <span id="bet-val">3</span></div></div>
-        <div style="margin-bottom:15px; color:white;">
-            <button onclick="changeBet(-1)">-1</button><button onclick="changeBet(1)">+1</button><button onclick="changeBet(10)">+10</button><button onclick="maxBet()">MAX</button>
+        <div style="font-size:1.5rem; margin-bottom:10px;">CREDIT: <span id="credit">100</span> | BET: <span id="bet">3</span></div>
+        <div style="margin-bottom:10px;">
+            <button onclick="changeBet(1)">+1</button>
+            <button onclick="changeBet(10)">+10</button>
+            <button onclick="changeBet(-1)">-1</button>
         </div>
-        <div class="lever" onclick="start()" style="width:65px;height:65px;background:radial-gradient(#666,#222);border-radius:50%;border:4px solid #777;cursor:pointer;"></div>
-        <div style="display:flex; gap:15px; margin-top:15px;">
-            <button id="b0" class="stop-btn" disabled onclick="stopR(0)">STOP</button>
-            <button id="b1" class="stop-btn" disabled onclick="stopR(1)">STOP</button>
-            <button id="b2" class="stop-btn" disabled onclick="stopR(2)">STOP</button>
+        <button onclick="startSpin()" style="width:120px; height:50px; background:red; color:white; font-weight:bold; cursor:pointer;">SPIN</button>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button id="b0" class="stop-btn" onclick="stopReel(0)">STOP</button>
+            <button id="b1" class="stop-btn" onclick="stopReel(1)">STOP</button>
+            <button id="b2" class="stop-btn" onclick="stopReel(2)">STOP</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- 音響 ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playTone(freq, type, dur, vol=0.1) {
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + dur);
-    }
-
-    // --- スロットロジック (完全復元) ---
-    const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
-    let credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0], REELS_DATA = [[],[],[]];
-    let isFever = false, isSuperFever = false, feverRounds = 0;
-
-    function saveGame() { localStorage.setItem('slot_credit', credit); }
-    function loadGame() { let s = localStorage.getItem('slot_credit'); if(s){ credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
-
-    function shuffleReels() {
-        const normBase = ['🍒','🍒','🍒','🍇','🍉','🔔','💎','🎰','⭐','7️⃣'];
-        const feverBase = ['7️⃣','7️⃣','⭐','⭐','🎰','💎','🍉','🔔','🍇','🍒'];
-        [0,1,2].forEach(i => {
-            let base = isFever || isSuperFever ? feverBase : normBase;
-            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5);
-            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join('');
-        });
-    }
-
-    function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
-    function maxBet() { changeBet(100); }
-
-    function start() {
-        if(speed.some(s=>s>0) || credit < bet) return;
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        document.getElementById('win-effect-container').innerHTML = '';
-        credit -= bet; saveGame(); document.getElementById('credit').innerText = credit;
-        speed = [55,55,55]; stopping = [false,false,false];
-        [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false);
-        document.getElementById('status-text').innerText = "SPINNING...";
-        animateSlot();
-    }
-
-    function stopR(i) { playTone(440, 'sine', 0.1); let idx = Math.ceil(Math.abs(pos[i])/80)+1; targetPos[i] = -(idx*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
-
-    function animateSlot() {
-        let m = false;
-        [0,1,2].forEach(i => {
-            if(speed[i] > 0) {
-                m = true;
-                if(stopping[i]) {
-                    let d = targetPos[i] - pos[i];
-                    if(Math.abs(d) < 1) { pos[i] = targetPos[i]; speed[i] = 0; } else pos[i] += d * 0.15;
-                } else {
-                    pos[i] -= speed[i]; if(pos[i] <= -1000) pos[i] = 0;
-                }
-                document.getElementById(`s${i}`).style.top = pos[i] + "px";
-            }
-        });
-        if(m) requestAnimationFrame(animateSlot); else if(stopping.every(s=>s)) checkWin();
-    }
-
-    async function checkWin() {
-        const grid = [0,1,2].map(i => {
-            let off = Math.abs(Math.round(pos[i]/80));
-            return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]];
-        });
-        const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]]];
-        let winMult = 0;
-        lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) winMult += PAYS[l[0]]; });
-
-        if(winMult > 0) {
-            const div = document.createElement('div'); div.className = 'win-pop';
-            div.innerText = `${winMult}倍 WIN!!`;
-            document.getElementById('win-effect-container').appendChild(div);
-            playTone(880, 'square', 0.5);
-            credit += (bet * winMult); document.getElementById('credit').innerText = credit;
-            saveGame();
-            if(winMult >= 7) { isFever = true; feverRounds = 5; document.getElementById('fever-label').style.visibility = 'visible'; }
-        } else {
-            if(feverRounds > 0) feverRounds--;
-            if(feverRounds <= 0) { isFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; }
-        }
-        document.getElementById('status-text').innerText = isFever ? `FEVER ${feverRounds}` : "READY";
-        shuffleReels();
-    }
-
-    // --- 3D 部屋 ---
+    // --- 3D & プレイヤー同期 ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('three-canvas').appendChild(renderer.domElement);
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(5, 10, 7); scene.add(dl);
 
+    const others = {};
     const machines = [];
-    function buildRoom() {
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 }));
-        floor.rotation.x = -Math.PI/2; floor.position.y = -4; scene.add(floor);
-        const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 }));
-        ceil.rotation.x = Math.PI/2; ceil.position.y = 10; scene.add(ceil);
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
-        const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 20), wallMat); sw1.position.set(-15, 6, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
-        const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 20), wallMat); sw2.position.set(15, 6, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
-        for(let i=-3; i<=3; i++) {
-            const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.5), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            body.position.set(-14, -2, i*8); scene.add(body);
-            machines.push(body);
+    function init3D() {
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({color: 0x444444}));
+        floor.rotation.x = -Math.PI/2; floor.position.y = -2; scene.add(floor);
+        for(let i=-2; i<=2; i++) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.5), new THREE.MeshStandardMaterial({color: 0x111111}));
+            m.position.set(-8, 0, i*6); scene.add(m); machines.push(m);
         }
     }
 
-    // --- 通信 (アバター非表示・チャットのみ) ---
-    const room = prompt("部屋番号", "777") || "777";
-    const myId = "P" + Math.floor(Math.random()*9000);
-    const hostId = "slot-room-" + room + "-host";
-    const peer = new Peer(myId);
-    let conns = [], hostConn = null;
+    // --- P2P設定 ---
+    const roomName = prompt("部屋番号を入力", "777") || "777";
+    const peer = new Peer();
+    let connections = [];
 
-    peer.on('open', id => { document.getElementById('multi-status').innerText = `ID: ${id}\nROOM: ${room}`; tryConnect(); });
-    function tryConnect() {
-        const c = peer.connect(hostId);
-        c.on('open', () => { hostConn = c; setup(c); });
-        setTimeout(() => { if(!hostConn) startAsHost(); }, 2000);
+    peer.on('open', (id) => {
+        document.getElementById('multi-status').innerText = `ID: ${id}\nRoom: ${roomName}`;
+        // 簡易マッチング：本来はサーバーが必要ですが、ここでは他者のIDを推測するか直接入力
+        // （今回は「他人が見える」ロジックを優先して記述）
+    });
+
+    peer.on('connection', conn => {
+        connections.push(conn);
+        conn.on('data', data => handleSync(conn.peer, data));
+    });
+
+    function handleSync(id, data) {
+        if(!others[id]) {
+            others[id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshStandardMaterial({color: 0x00aaff}));
+            scene.add(others[id]);
+        }
+        others[id].position.set(data.x, data.y - 0.5, data.z);
+        others[id].rotation.y = data.ry;
     }
-    function startAsHost() {
-        const hp = new Peer(hostId);
-        hp.on('open', () => document.getElementById('multi-status').innerText = `HOSTING\nROOM: ${room}`);
-        hp.on('connection', c => { conns.push(c); setup(c); });
+
+    function broadcast() {
+        const data = { x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: camera.rotation.y };
+        connections.forEach(c => { if(c.open) c.send(data); });
     }
-    function setup(c) {
-        c.on('data', d => {
-            if(d.type === 'chat') addChat(d.msg, d.id);
-            if(peer.id === hostId) conns.forEach(cn => { if(cn.open && cn.peer !== c.peer) cn.send(d); });
+
+    // --- スロットロジック ---
+    const PAYS = {'7️⃣':15, '💎':10, '🔔':8, '🍉':5, '🍒':2};
+    const SYMBOLS = ['7️⃣','💎','🔔','🍉','🍒','🍒','🍉','🔔','💎','7️⃣'];
+    let credit = 100, bet = 3, reels = [[],[],[]], speed = [0,0,0], pos = [0,0,0], isStopping = [false,false,false];
+
+    function initSlot() {
+        [0,1,2].forEach(i => {
+            reels[i] = [...SYMBOLS].sort(()=>Math.random()-0.5);
+            document.getElementById(`s${i}`).innerHTML = [...reels[i], ...reels[i]].map(s => `<div class="symbol">${s}</div>`).join('');
         });
     }
 
-    function sendChat() {
-        const i = document.getElementById('chat-input'); if(!i.value) return;
-        const d = {type:'chat', msg:i.value, id:myId}; addChat(i.value, "You");
-        if(hostConn) hostConn.send(d); else conns.forEach(cn => cn.send(d));
-        i.value = '';
+    function changeBet(n) { if(speed[0]>0) return; bet = Math.max(1, Math.min(credit, bet+n)); document.getElementById('bet').innerText = bet; }
+
+    function startSpin() {
+        if(speed[0]>0 || credit < bet) return;
+        credit -= bet; document.getElementById('credit').innerText = credit;
+        speed = [50, 50, 50]; isStopping = [false,false,false];
+        requestAnimationFrame(updateReels);
     }
-    function addChat(m, s) { const b = document.getElementById('chat-box'); b.innerHTML += `<div><b>${s}:</b> ${m}</div>`; b.scrollTop = b.scrollHeight; }
 
-    // --- 操作 ---
-    let tp=0, ty=0, isMob=false, isTyping=false, joyX=0, joyY=0, ts={x:0, y:0};
-    camera.position.set(0, -1, 15);
-
-    window.addEventListener('touchstart', e => { ts.x = e.touches[0].clientX; ts.y = e.touches[0].clientY; }, {passive: false});
-    window.addEventListener('touchmove', e => {
-        if(!isMob || isTyping) return;
-        const t = e.touches[0];
-        if(t.clientX > window.innerWidth/2) {
-            ty -= (t.clientX - ts.x) * 0.006; tp -= (t.clientY - ts.y) * 0.006;
-            tp = Math.max(-1.4, Math.min(1.4, tp));
-        } else {
-            const r = document.getElementById('joystick-container').getBoundingClientRect();
-            joyX = (t.clientX - (r.left + 60)) / 60; joyY = (t.clientY - (r.top + 60)) / 60;
-            const dist = Math.sqrt(joyX*joyX + joyY*joyY);
-            if(dist > 1) { joyX/=dist; joyY/=dist; }
-            document.getElementById('joystick-knob').style.transform = `translate(calc(-50% + ${joyX*40}px), calc(-50% + ${joyY*40}px))`;
+    function stopReel(i) {
+        if(speed[i] > 0) {
+            let currentIdx = Math.round(Math.abs(pos[i])/80);
+            pos[i] = -(currentIdx * 80);
+            speed[i] = 0;
+            if(speed.every(s => s === 0)) checkWin();
         }
-        ts.x = t.clientX; ts.y = t.clientY;
-    }, {passive: false});
-    window.addEventListener('touchend', () => { joyX=0; joyY=0; document.getElementById('joystick-knob').style.transform = `translate(-50%, -50%)`; });
+    }
 
-    function initGame() {
-        loadGame(); shuffleReels(); buildRoom();
-        const s = Math.min(window.innerWidth/500, window.innerHeight/820, 1);
-        document.documentElement.style.setProperty('--ui-scale', s);
-        window.addEventListener('mousemove', (e) => {
-            if (document.pointerLockElement === renderer.domElement) {
-                ty -= e.movementX * 0.002; tp -= e.movementY * 0.002;
-                tp = Math.max(-1.4, Math.min(1.4, tp));
+    function updateReels() {
+        let moving = false;
+        [0,1,2].forEach(i => {
+            if(speed[i] > 0) {
+                moving = true;
+                pos[i] -= speed[i];
+                if(pos[i] <= -800) pos[i] = 0;
+                document.getElementById(`s${i}`).style.top = pos[i] + "px";
+            }
+        });
+        if(moving) requestAnimationFrame(updateReels);
+    }
+
+    function checkWin() {
+        const results = [0,1,2].map(i => {
+            let idx = Math.abs(pos[i]/80) % 10;
+            return reels[i][idx];
+        });
+        if(results[0] === results[1] && results[1] === results[2]) {
+            let win = bet * (PAYS[results[0]] || 1);
+            credit += win;
+            document.getElementById('credit').innerText = credit;
+            const pop = document.createElement('div'); pop.className='win-pop'; pop.innerText=`WIN ${win}!`;
+            document.getElementById('win-effect-container').appendChild(pop);
+            setTimeout(() => pop.remove(), 2000);
+        }
+    }
+
+    // --- 操作系 ---
+    let move = {f:0, b:0, l:0, r:0}, yaw = 0, pitch = 0, isMob = false;
+    camera.position.set(0, 0, 10);
+
+    function initAll() {
+        init3D(); initSlot();
+        window.addEventListener('keydown', e => {
+            if(e.key=='w') move.f=1; if(e.key=='s') move.b=1;
+            if(e.key=='a') move.l=1; if(e.key=='d') move.r=1;
+        });
+        window.addEventListener('keyup', e => {
+            if(e.key=='w') move.f=0; if(e.key=='s') move.b=0;
+            if(e.key=='a') move.l=0; if(e.key=='d') move.r=0;
+        });
+        document.addEventListener('mousemove', e => {
+            if(document.pointerLockElement === renderer.domElement) {
+                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
+                pitch = Math.max(-1.5, Math.min(1.5, pitch));
+            }
+        });
+        document.addEventListener('mousedown', () => {
+            if(!document.getElementById('ui').classList.contains('active')) {
+                const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
+                if(ray.intersectObjects(machines).length > 0) toggleSlot(true);
+                else renderer.domElement.requestPointerLock();
             }
         });
         loop();
     }
 
+    function toggleSlot(o) { 
+        document.getElementById('ui').classList.toggle('active', o);
+        if(o) document.exitPointerLock();
+    }
+    function closeUI() { toggleSlot(false); }
+    function toggleMobile() { isMob = !isMob; document.getElementById('joystick-container').style.display = isMob ? 'block' : 'none'; }
+
     function loop() {
         requestAnimationFrame(loop);
-        if(!document.getElementById('ui').classList.contains('active') && !isTyping) {
-            camera.rotation.set(tp, ty, 0, 'YXZ');
-            if(isMob && (Math.abs(joyX)>0.1 || Math.abs(joyY)>0.1)) {
-                let v = new THREE.Vector3(joyX, 0, joyY).applyQuaternion(camera.quaternion); v.y=0;
-                camera.position.addScaledVector(v.normalize(), 0.15);
-            }
+        if(!document.getElementById('ui').classList.contains('active')) {
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            let dir = new THREE.Vector3(move.r - move.l, 0, move.b - move.f).applyQuaternion(camera.quaternion);
+            dir.y = 0; camera.position.addScaledVector(dir.normalize(), 0.1);
+            broadcast();
         }
         renderer.render(scene, camera);
     }
-    
-    function toggleMobile() { isMob=!isMob; document.getElementById('joystick-container').style.display=isMob?'block':'none'; if(!isMob) renderer.domElement.requestPointerLock(); }
-    function closeUI() { document.getElementById('ui').classList.remove('active'); }
-    function resetGame() { if(confirm("RESET?")){ credit=100; saveGame(); document.getElementById('credit').innerText=credit; } }
-    
-    document.addEventListener('mousedown', () => { 
-        if(!isMob && !document.getElementById('ui').classList.contains('active') && !isTyping) {
-            const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
-            if(ray.intersectObjects(machines).length > 0) document.getElementById('ui').classList.add('active');
-            else renderer.domElement.requestPointerLock();
-        }
-    });
-    document.addEventListener('keydown', e => { if(e.key==='Enter' && isTyping) sendChat(); });
 </script>
 </body>
 </html>
