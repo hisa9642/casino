@@ -2,50 +2,49 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Multiplay Fixed</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>8-LINE SLOT - Multiplay & Chat</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
-        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #fff; background: rgba(0,0,0,0.7); padding: 10px; font-size: 12px; border-radius: 5px; white-space: pre-line; border: 1px solid #555; pointer-events: none; }
+        
+        /* マルチプレイ・チャットUI */
+        #multi-status { position: fixed; top: 10px; right: 10px; z-index: 3000; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; font-size: 11px; border-radius: 5px; border: 1px solid #0f0; pointer-events: none; white-space: pre-line; }
+        #chat-container { position: fixed; bottom: 20px; left: 20px; z-index: 3000; width: 300px; pointer-events: auto; }
+        #chat-log { height: 150px; background: rgba(0,0,0,0.6); color: #fff; font-family: sans-serif; font-size: 13px; overflow-y: auto; padding: 5px; border-radius: 5px; border: 1px solid #444; margin-bottom: 5px; }
+        #chat-input { width: 100%; background: rgba(255,255,255,0.1); border: 1px solid #555; color: #fff; padding: 5px; box-sizing: border-box; border-radius: 3px; }
 
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
         #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
-        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
+        .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
         .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
-        @media (max-width: 850px) { .paytable { display: none; } }
-        .pay-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 5px 0; }
-        #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; text-align: center; width: 100%; }
-        .win-pop { color: #ff0000; font-size: 4rem; font-weight: bold; text-shadow: 0 0 20px #fff, 0 0 40px gold; animation: popIn 0.5s forwards, fadeOut 0.5s 2.5s forwards; margin: 10px; }
-        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
-        .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-        #fever-label { color: #f00; font-size: 1.6rem; visibility: hidden; animation: blink 0.4s infinite alternate; }
+        .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
         #status-text { color: #f00; font-size: 2rem; }
-        @keyframes blink { from { opacity: 1; } to { opacity: 0.1; } }
         .reels { display: flex; gap: 10px; background: #000; padding: 15px; margin: 20px 0; border: 6px solid #666; }
         .reel-box { width: 110px; height: 240px; background: #fff; overflow: hidden; position: relative; }
         .strip { position: absolute; width: 100%; top: 0; left: 0; }
-        .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 3.2rem; border-bottom: 1px solid #ddd; box-sizing: border-box; color: #000; }
+        .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 3.2rem; border-bottom: 1px solid #ddd; color: #000; }
         .stats { color: #f00; font-size: 1.8rem; display: flex; gap: 30px; margin-bottom: 15px; }
         .lever { width: 65px; height: 65px; background: radial-gradient(#666, #222); border-radius: 50%; border: 4px solid #777; cursor: pointer; }
         .stop-btn { width: 95px; height: 95px; border-radius: 50%; background: #ccc; border: 6px solid #999; font-weight: bold; cursor: pointer; }
-        #crosshair { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; opacity: 0.8; }
+        #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; text-align: center; }
+        #crosshair { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; }
     </style>
 </head>
-<body onload="initGame()" oncontextmenu="return false;">
+<body onload="initAll()" oncontextmenu="return false;">
 
-<button id="mobile-toggle" onclick="toggleMobile()">スマホ用 ON/OFF</button>
-<div id="joystick-container"><div id="joystick-knob"></div></div>
-<div id="crosshair"></div>
-<div id="win-effect-container"></div>
 <div id="three-canvas"></div>
+<div id="crosshair"></div>
 <div id="multi-status">Initializing...</div>
+<div id="win-effect-container"></div>
+
+<div id="chat-container">
+    <div id="chat-log"></div>
+    <input type="text" id="chat-input" placeholder="メッセージを入力 (Enterで送信)" onkeydown="if(event.key==='Enter') sendChat()">
+</div>
 
 <div id="ui">
     <div class="slot-container" id="main-container">
@@ -54,18 +53,14 @@
             <button onclick="resetGame()" style="cursor:pointer; background: #822; color: white; border: none; padding: 5px 15px; border-radius: 5px;">RESET</button>
             <button onclick="closeUI()" style="cursor:pointer; background: #444; color: white; border: none; padding: 5px 15px; border-radius: 5px;">EXIT</button>
         </div>
-        <div class="lcd"><div id="fever-label">🔥 FEVER TIME 🔥</div><div id="status-text">READY</div></div>
+        <div class="lcd"><div id="status-text">READY</div></div>
         <div class="reels">
             <div class="reel-box" id="rb0"><div id="s0" class="strip"></div></div>
             <div class="reel-box" id="rb1"><div id="s1" class="strip"></div></div>
             <div class="reel-box" id="rb2"><div id="s2" class="strip"></div></div>
         </div>
-        <div class="stats"><div>coin: <span id="credit">100</span></div><div>BET: <span id="bet-val">3</span></div></div>
-        <div style="margin-bottom:15px; color:white;">
-            <button onclick="changeBet(-1)">-1</button><button onclick="changeBet(10)">+10</button>
-            <button onclick="changeBet(1)">+1</button><button onclick="maxBet()">MAX</button>
-        </div>
-        <div class="lever" onclick="start()"></div>
+        <div class="stats"><div>coin: <span id="credit-val">100</span></div><div>BET: 3</div></div>
+        <div class="lever" onclick="startSlot()"></div>
         <div style="display:flex; gap:15px; margin-top:15px;">
             <button id="b0" class="stop-btn" disabled onclick="stopR(0)">STOP</button>
             <button id="b1" class="stop-btn" disabled onclick="stopR(1)">STOP</button>
@@ -77,227 +72,201 @@
 <script>
     // --- スロットロジック ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
-    let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
-    let isFever = false, isSuperFever = false, feverRounds = 0;
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let REELS_DATA = [[], [], []], credit = 100, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
 
-    function playTone(freq, type, dur, vol=0.1) { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }
-    const sounds = { stop: () => playTone(440, 'sine', 0.1), winLine: () => playTone(880, 'square', 0.2), coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } };
-    function saveGame() { localStorage.setItem('slot_credit', credit); }
-    function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
-    function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); document.getElementById('credit').innerText = credit; } }
-    
-    function shuffleReels() { 
-        const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; 
-        const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; 
-        const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒']; 
-        [0,1,2].forEach(i => { 
-            let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase); 
-            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5); 
-            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); 
-        }); 
+    function shuffleReels() {
+        const base = ['🍒','🍒','🍇','🍉','🔔','💎','🎰','⭐','7️⃣'];
+        [0,1,2].forEach(i => {
+            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5);
+            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join('');
+        });
     }
-    
-    function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
-    function maxBet() { changeBet(100); }
 
-    function start() { 
-        if(speed.some(s=>s>0) || credit < bet) return; 
-        if(audioCtx.state === 'suspended') audioCtx.resume(); 
-        document.getElementById('win-effect-container').innerHTML = ''; 
-        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; }
-        shuffleReels(); credit -= bet; saveGame(); document.getElementById('credit').innerText = credit; 
-        let lbl = isSuperFever ? "SUPER" : "FEVER";
-        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "SPINNING...";
-        speed = [55, 55, 55]; stopping = [false,false,false]; 
+    function startSlot() {
+        if(speed.some(s=>s>0) || credit < 3) return;
+        credit -= 3; document.getElementById('credit-val').innerText = credit;
+        document.getElementById('status-text').innerText = "SPINNING...";
+        speed = [55, 55, 55]; stopping = [false,false,false];
         [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false);
-        animateSlot(); 
     }
 
-    function stopR(i) { sounds.stop(); let cur = Math.abs(pos[i]); let idx = Math.ceil(cur/80)+1; targetPos[i] = -((idx+1)*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
-
-    function animateSlot() { 
-        let m = false; 
-        [0,1,2].forEach(i => { 
-            if(speed[i] > 0) { 
-                m = true; 
-                if(stopping[i]) { 
-                    let d = targetPos[i]-pos[i]; 
-                    if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; 
-                } else { 
-                    pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; 
-                } 
-                document.getElementById(`s${i}`).style.top = pos[i]+"px"; 
-            } 
-        }); 
-        if(m) requestAnimationFrame(animateSlot); else if(stopping.every(s=>s)) check(); 
+    function stopR(i) {
+        let cur = Math.abs(pos[i]);
+        let idx = Math.ceil(cur/80)+1;
+        targetPos[i] = -((idx+1)*80);
+        stopping[i] = true;
+        document.getElementById(`b${i}`).disabled = true;
     }
 
-    async function check() { 
-        const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); 
-        const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; 
-        let winCnt = 0, mults = []; 
-        lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); 
-        if(mults.length > 0) { 
-            const container = document.getElementById('win-effect-container'); 
-            let currentTotal = 1; 
-            for(let i=0; i<mults.length; i++) { 
-                currentTotal *= mults[i]; 
-                if(winCnt >= 2) { 
-                    const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; 
-                    container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); 
-                } 
-            } 
-            const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; 
-            container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); 
-            if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } 
-            else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } 
-            else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } 
-        } else { if(isFever || isSuperFever) feverRounds--; } 
-        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } 
-        let lbl = isSuperFever ? "SUPER" : "FEVER";
-        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; 
-        saveGame(); 
+    function updateSlotLogic() {
+        let moving = false;
+        [0,1,2].forEach(i => {
+            if(speed[i] > 0) {
+                moving = true;
+                if(stopping[i]) {
+                    let d = targetPos[i]-pos[i];
+                    if(Math.abs(d)<1){ pos[i]=targetPos[i]; speed[i]=0; }
+                    else pos[i]+=d*0.15;
+                } else {
+                    pos[i]-=speed[i]; if(pos[i]<=-800) pos[i]=0;
+                }
+                document.getElementById(`s${i}`).style.top = pos[i]+"px";
+            }
+        });
+        if(!moving && stopping.every(s=>s)) {
+            stopping = [false,false,false];
+            document.getElementById('status-text').innerText = "READY";
+        }
     }
 
-    // --- 3D 空間 (カジノ風ルーム復元) ---
+    // --- 3D 空間 ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.setClearColor(0x111111);
     document.getElementById('three-canvas').appendChild(renderer.domElement);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
-
-    // 床・天井・壁
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x666666 })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x444444 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x222222 }); // 暗めの壁
-    const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw1.position.set(-10, 0, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
-    const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw2.position.set(10, 0, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
-    const bw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); bw.position.set(0, 0, 30); bw.rotation.y = Math.PI; scene.add(bw);
-    const fw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); fw.position.set(0, 0, -30); scene.add(fw);
+    
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const grid = new THREE.GridHelper(100, 50, 0x00ff00, 0x222222);
+    scene.add(grid);
 
     const machines = [];
-    function createMachine(x, z) {
+    function createMachine(z) {
         const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-        body.position.set(x, -2, z); scene.add(body);
-        machines.push({ mesh: body });
+        body.position.set(-8.5, 0, z);
+        scene.add(body);
+        machines.push(body);
     }
-    for(let i=-2; i<=2; i++) createMachine(-8.5, i*8); // 壁際に配置
+    for(let i=-2; i<=2; i++) createMachine(i*8);
 
-    // --- P2P マルチプレイ (固定ロジック) ---
-    let myName = prompt("名前を入力してください", "Player") || "Player";
-    let roomNumInput = prompt("部屋番号を入力してください", "777") || "777";
-    const myId = "P-" + roomNumInput + "-" + Math.floor(Math.random() * 9999);
-    const hostId = "ROOM-" + roomNumInput + "-HOST";
-    
-    const peer = new Peer(myId);
-    const otherPlayers = {};
-    const connections = [];
+    // --- マルチプレイ & チャット ---
+    const roomNum = prompt("部屋番号を入力", "777") || "777";
+    const myId = "P" + Math.floor(Math.random() * 9000 + 1000);
+    const hostId = "slot-room-" + roomNum + "-host";
+    let myPeer = new Peer(myId);
+    let connections = [];
+    const avatars = {};
 
-    peer.on('open', id => {
-        updateStatus(`ID: ${id}\n部屋: ${roomNumInput}`);
-        const conn = peer.connect(hostId);
+    myPeer.on('open', (id) => {
+        updateStatus(`ID: ${id}\nRoom: ${roomNum}`);
+        const conn = myPeer.connect(hostId);
         setupConn(conn);
+        setTimeout(() => { if (connections.length === 0) startAsHost(); }, 2000);
     });
 
-    const peerHost = new Peer(hostId);
-    peerHost.on('open', () => console.log("Host Mode Active"));
-    peerHost.on('connection', conn => setupConn(conn));
-    peerHost.on('error', () => {}); 
+    function startAsHost() {
+        const hostPeer = new Peer(hostId);
+        hostPeer.on('connection', (conn) => setupConn(conn));
+    }
 
     function setupConn(conn) {
         conn.on('open', () => {
-            if(!connections.find(c => c.peer === conn.peer)) connections.push(conn);
-            console.log("Joined: " + conn.peer);
+            if (!connections.find(c => c.peer === conn.peer)) connections.push(conn);
+            addChatLog("System", `${conn.peer} joined!`);
         });
-        conn.on('data', data => {
-            if(data.type === 'move') {
-                if(!otherPlayers[data.id]) {
-                    const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+        conn.on('data', (data) => {
+            if (data.type === 'move') {
+                if (!avatars[data.id]) {
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ color: 0x00ff88 }));
                     scene.add(mesh);
-                    otherPlayers[data.id] = mesh;
+                    avatars[data.id] = mesh;
                 }
-                otherPlayers[data.id].position.set(data.x, data.y - 1, data.z);
-                otherPlayers[data.id].rotation.y = data.ry;
-                if(peerHost.open) {
-                    connections.forEach(c => { if(c.open && c.peer !== conn.peer) c.send(data); });
-                }
+                avatars[data.id].position.set(data.x, data.y, data.z);
+                avatars[data.id].rotation.y = data.ry;
             }
+            if (data.type === 'chat') addChatLog(data.id, data.msg);
         });
     }
 
-    function broadcast() {
-        const data = { type: 'move', id: myId, x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: camera.rotation.y };
+    function broadcastMove() {
+        const data = { type:'move', id:myId, x:camera.position.x, y:camera.position.y-0.6, z:camera.position.z, ry:camera.rotation.y };
         connections.forEach(c => { if(c.open) c.send(data); });
+    }
+
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if(!msg) return;
+        const data = { type: 'chat', id: myId, msg: msg };
+        connections.forEach(c => { if(c.open) c.send(data); });
+        addChatLog("You", msg);
+        input.value = "";
+    }
+
+    function addChatLog(sender, msg) {
+        const log = document.getElementById('chat-log');
+        const div = document.createElement('div');
+        div.innerText = `${sender}: ${msg}`;
+        log.appendChild(div);
+        log.scrollTop = log.scrollHeight;
     }
 
     function updateStatus(txt) { document.getElementById('multi-status').innerText = txt; }
 
     // --- 操作系 ---
-    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0, isMobile = false, joyDir = {x:0, y:0};
-    camera.position.set(0, 1.6, 15);
-
-    function updateUIScale() { const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
-    window.addEventListener('resize', updateUIScale);
-    function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none'; }
-    function toggleSlot(o){ updateUIScale(); document.getElementById('ui').classList.toggle('active',o); if(o) document.exitPointerLock(); }
-    function closeUI(){ toggleSlot(false); }
-
-    const joyContainer = document.getElementById('joystick-container');
-    const joyKnob = document.getElementById('joystick-knob');
-    joyContainer.addEventListener('touchmove', (e) => {
-        e.preventDefault(); const t = e.touches[0]; const r = joyContainer.getBoundingClientRect();
-        const cx = r.left + r.width/2; const cy = r.top + r.height/2;
-        let dx = t.clientX - cx; let dy = t.clientY - cy;
-        const d = Math.sqrt(dx*dx+dy*dy); if(d>50){ dx*=50/d; dy*=50/d; }
-        joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-        joyDir = {x: dx/50, y: dy/50};
-    }, {passive: false});
-    joyContainer.addEventListener('touchend', () => { joyKnob.style.transform = `translate(-50%, -50%)`; joyDir = {x:0, y:0}; });
+    let moveDir = { f: false, b: false, l: false, r: false };
+    let yaw = 0, pitch = 0;
 
     document.addEventListener('mousedown', () => {
         if(document.getElementById('ui').classList.contains('active')) return;
-        const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
-        if(ray.intersectObjects(machines.map(m=>m.mesh)).length > 0) toggleSlot(true);
-        else if(!isMobile) renderer.domElement.requestPointerLock();
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(new THREE.Vector2(0,0), camera);
+        if(ray.intersectObjects(machines).length > 0) toggleSlot(true);
+        else renderer.domElement.requestPointerLock();
     });
-    document.addEventListener('mousemove', e => { if (document.pointerLockElement === renderer.domElement) { targetYaw -= e.movementX * 0.002; targetPitch -= e.movementY * 0.002; targetPitch = Math.max(-1.5, Math.min(1.5, targetPitch)); } });
-    document.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=true; if(k==='s')moveDir.b=true; if(k==='a')moveDir.l=true; if(k==='d')moveDir.r=true; });
-    document.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=false; if(k==='s')moveDir.b=false; if(k==='a')moveDir.l=false; if(k==='d')moveDir.r=false; });
 
-    function initGame() { 
-        loadGame(); shuffleReels(); updateUIScale(); 
-        document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div class="pay-item"><span>${s}</span><span>x${v}</span></div>`).join('');
-        loop(); 
+    document.addEventListener('mousemove', e => {
+        if (document.pointerLockElement === renderer.domElement) {
+            yaw -= e.movementX * 0.002;
+            pitch -= e.movementY * 0.002;
+            pitch = Math.max(-1.5, Math.min(1.5, pitch));
+        }
+    });
+
+    document.addEventListener('keydown', e => {
+        const k = e.key.toLowerCase();
+        if(k==='w') moveDir.f=true; if(k==='s') moveDir.b=true;
+        if(k==='a') moveDir.l=true; if(k==='d') moveDir.r=true;
+    });
+    document.addEventListener('keyup', e => {
+        const k = e.key.toLowerCase();
+        if(k==='w') moveDir.f=false; if(k==='s') moveDir.b=false;
+        if(k==='a') moveDir.l=false; if(k==='d') moveDir.r=false;
+    });
+
+    function toggleSlot(o){
+        const ui = document.getElementById('ui');
+        ui.classList.toggle('active', o);
+        const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1);
+        document.documentElement.style.setProperty('--ui-scale', s);
+        if(o) document.exitPointerLock();
+    }
+    function closeUI(){ toggleSlot(false); }
+    function resetGame(){ credit = 100; document.getElementById('credit-val').innerText = credit; }
+
+    function initAll() {
+        shuffleReels();
+        document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div style="display:flex; justify-content:space-between;"><span>${s}</span><span>x${v}</span></div>`).join('');
+        camera.position.set(0, 1.6, 10);
+        loop();
     }
 
     function loop() {
         requestAnimationFrame(loop);
         if (!document.getElementById('ui').classList.contains('active')) {
-            currentYaw += (targetYaw - currentYaw) * 0.15;
-            currentPitch += (targetPitch - currentPitch) * 0.15;
-            camera.rotation.set(currentPitch, currentYaw, 0, 'YXZ');
-            
-            let wishDir = new THREE.Vector3();
-            if(isMobile) { wishDir.x = joyDir.x; wishDir.z = joyDir.y; }
-            else { if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1; }
-            
-            wishDir.normalize().applyQuaternion(camera.quaternion); wishDir.y = 0;
-            velocity.addScaledVector(wishDir, 0.02); velocity.multiplyScalar(0.85);
-            if (velocity.length() > 0.01) { bobTime += 0.15; camera.position.y = 1.6 + Math.sin(bobTime) * 0.04; }
-            camera.position.add(velocity);
-            
-            // 壁判定 (30x60の部屋)
-            if(Math.abs(camera.position.x) > 9.5) camera.position.x = Math.sign(camera.position.x) * 9.5;
-            if(Math.abs(camera.position.z) > 29.5) camera.position.z = Math.sign(camera.position.z) * 29.5;
-
-            broadcast();
-            updateStatus(`NAME: ${myName}\nROOM: ${roomNumInput}\nPLAYERS: ${Object.keys(otherPlayers).length + 1}人`);
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            const dir = new THREE.Vector3();
+            if(moveDir.f) dir.z -= 1; if(moveDir.b) dir.z += 1;
+            if(moveDir.l) dir.x -= 1; if(moveDir.r) dir.x += 1;
+            dir.normalize().applyQuaternion(camera.quaternion);
+            dir.y = 0;
+            camera.position.addScaledVector(dir, 0.1);
+            broadcastMove();
         }
+        updateSlotLogic();
         renderer.render(scene, camera);
+        updateStatus(`ID: ${myId}\nROOM: ${roomNum}\nPLAYERS: ${connections.length + 1}`);
     }
 </script>
 </body>
