@@ -3,24 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>8-LINE SLOT - Multiplay</title>
+    <title>8-LINE SLOT - Hybrid Version</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
-        body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
-        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #000; background: rgba(255,255,255,0.7); padding: 5px 10px; font-size: 12px; border-radius: 5px; white-space: pre-line; pointer-events: none; }
         
-        /* チャットをスマホで打てるように修正 */
-        #chat-container { position: fixed; bottom: 50px; left: 20px; z-index: 2500; width: 250px; pointer-events: none; }
-        #chat-box { height: 120px; overflow-y: auto; background: rgba(0,0,0,0.5); color: white; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 5px; }
-        #chat-input-wrapper { display: flex; pointer-events: auto; } /* ここを操作可能に */
-        #chat-input { flex: 1; background: rgba(255,255,255,0.8); border: none; padding: 5px; border-radius: 3px; }
+        /* スマホUI */
+        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 3000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
+        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; z-index: 2000; display: none; }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        
+        /* チャット */
+        #chat-container { position: fixed; bottom: 50px; left: 20px; z-index: 2500; width: 250px; }
+        #chat-box { height: 120px; overflow-y: auto; background: rgba(0,0,0,0.7); color: #0f0; font-size: 12px; padding: 5px; border-radius: 5px; margin-bottom: 5px; pointer-events: none; border: 1px solid #333; }
+        #chat-input-area { display: flex; gap: 5px; pointer-events: auto; }
+        #chat-input { flex: 1; background: rgba(255,255,255,0.9); border: none; padding: 8px; border-radius: 3px; }
+        #chat-send { background: #444; color: #fff; border: 1px solid #fff; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
 
+        /* マルチステータス (黒背景・緑文字) */
+        #multi-status { position: fixed; top: 20px; right: 20px; z-index: 3000; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px 12px; font-size: 12px; border-radius: 5px; border: 1px solid #0f0; pointer-events: none; white-space: pre-line; }
+
+        /* スロットUI */
         #ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
         #ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
         .slot-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
@@ -43,9 +49,9 @@
 
 <div id="chat-container">
     <div id="chat-box"></div>
-    <div id="chat-input-wrapper">
+    <div id="chat-input-area">
         <input type="text" id="chat-input" placeholder="Chat..." onfocus="isTyping=true" onblur="isTyping=false">
-        <button onclick="sendChat()" style="background:#ddd; border:none; padding:5px; border-radius:3px;">送</button>
+        <button id="chat-send" onclick="sendChat()">送</button>
     </div>
 </div>
 
@@ -73,7 +79,7 @@
 </div>
 
 <script>
-    // --- スロットロジック (そのまま) ---
+    // --- スロットロジック ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
     let credit = 100, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0], REELS_DATA = [[],[],[]];
 
@@ -85,31 +91,34 @@
         });
     }
 
-    // --- 3D 部屋の復元 ---
+    // --- 3D 部屋の復元 (黒い部屋・最新ライティング) ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('three-canvas').appendChild(renderer.domElement);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(5, 10, 7); scene.add(dl);
+    
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(5, 10, 7); scene.add(dl);
 
+    const machines = [];
     function buildRoom() {
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x222222 }));
         floor.rotation.x = -Math.PI/2; floor.position.y = -4; scene.add(floor);
-        const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x444444 }));
-        ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
-        const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw1.position.set(-10, 0, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
-        const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw2.position.set(10, 0, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
-        const bw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); bw.position.set(0, 0, 30); bw.rotation.y = Math.PI; scene.add(bw);
-        for(let i=-2; i<=2; i++) {
-            const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            body.position.set(-8.5, -2, i*8); scene.add(body);
+        const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+        ceil.rotation.x = Math.PI/2; ceil.position.y = 10; scene.add(ceil);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 20), wallMat); sw1.position.set(-15, 6, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
+        const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 20), wallMat); sw2.position.set(15, 6, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
+        const bw = new THREE.Mesh(new THREE.PlaneGeometry(30, 20), wallMat); bw.position.set(0, 6, 30); bw.rotation.y = Math.PI; scene.add(bw);
+        for(let i=-3; i<=3; i++) {
+            const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.5), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            body.position.set(-14, -2, i*8); scene.add(body);
+            machines.push(body);
         }
     }
 
-    // --- マルチプレイ通信 (あなたが提示した最初のコードの仕組み) ---
+    // --- マルチプレイ通信 (あなたが指定した「この時に戻せ」のロジック) ---
     const room = prompt("部屋番号", "777") || "777";
     const myId = "P" + Math.floor(Math.random()*9000);
     const hostId = "slot-room-" + room + "-host";
@@ -157,37 +166,39 @@
     }
     function addChat(m, s) { const b = document.getElementById('chat-box'); b.innerHTML += `<div><b>${s}:</b> ${m}</div>`; b.scrollTop = b.scrollHeight; }
 
-    // --- 操作系 (スマホ移動の修正版) ---
+    // --- 操作系 (最新のスマホ操作 & PC視点移動) ---
     let tp=0, ty=0, isMob=false, isTyping=false, joyX=0, joyY=0, ts={x:0, y:0};
     camera.position.set(0, -1, 15);
 
-    window.addEventListener('touchstart', e => { 
-        ts.x = e.touches[0].clientX; ts.y = e.touches[0].clientY; 
-    }, {passive: false});
-
+    window.addEventListener('touchstart', e => { ts.x = e.touches[0].clientX; ts.y = e.touches[0].clientY; }, {passive: false});
     window.addEventListener('touchmove', e => {
         if(!isMob || isTyping) return;
         const t = e.touches[0];
         if(t.clientX > window.innerWidth/2) {
-            ty -= (t.clientX - ts.x) * 0.006; 
-            tp -= (t.clientY - ts.y) * 0.006;
+            ty -= (t.clientX - ts.x) * 0.006; tp -= (t.clientY - ts.y) * 0.006;
             tp = Math.max(-1.4, Math.min(1.4, tp));
         } else {
             const r = document.getElementById('joystick-container').getBoundingClientRect();
-            joyX = (t.clientX - (r.left + 60)) / 60; 
-            joyY = (t.clientY - (r.top + 60)) / 60;
+            joyX = (t.clientX - (r.left + 60)) / 60; joyY = (t.clientY - (r.top + 60)) / 60;
+            const dist = Math.sqrt(joyX*joyX + joyY*joyY);
+            if(dist > 1) { joyX/=dist; joyY/=dist; }
             document.getElementById('joystick-knob').style.transform = `translate(calc(-50% + ${joyX*40}px), calc(-50% + ${joyY*40}px))`;
         }
         ts.x = t.clientX; ts.y = t.clientY;
     }, {passive: false});
-
+    
     window.addEventListener('touchend', () => { joyX=0; joyY=0; document.getElementById('joystick-knob').style.transform = `translate(-50%, -50%)`; });
 
-    // --- 初期化 & ループ ---
     function initGame() {
         shuffleReels(); buildRoom();
         const s = Math.min(window.innerWidth/500, window.innerHeight/820, 1);
         document.documentElement.style.setProperty('--ui-scale', s);
+        window.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === renderer.domElement) {
+                ty -= e.movementX * 0.002; tp -= e.movementY * 0.002;
+                tp = Math.max(-1.4, Math.min(1.4, tp));
+            }
+        });
         loop();
     }
 
@@ -197,8 +208,7 @@
         if(!document.getElementById('ui').classList.contains('active') && !isTyping) {
             camera.rotation.set(tp, ty, 0, 'YXZ');
             if(isMob && (Math.abs(joyX)>0.1 || Math.abs(joyY)>0.1)) {
-                let v = new THREE.Vector3(joyX, 0, joyY).applyQuaternion(camera.quaternion); 
-                v.y=0;
+                let v = new THREE.Vector3(joyX, 0, joyY).applyQuaternion(camera.quaternion); v.y=0;
                 camera.position.addScaledVector(v.normalize(), 0.15);
             }
             if(Date.now() - lastS > 50) {
@@ -210,18 +220,19 @@
         renderer.render(scene, camera);
     }
     
-    // スロット制御
     function start() { if(speed.some(s=>s>0)) return; credit-=3; document.getElementById('credit').innerText=credit; speed=[55,55,55]; stopping=[false,false,false]; [0,1,2].forEach(i=>document.getElementById(`b${i}`).disabled=false); animateSlot(); }
     function stopR(i) { let idx=Math.ceil(Math.abs(pos[i])/80)+1; targetPos[i]=-(idx*80); stopping[i]=true; document.getElementById(`b${i}`).disabled=true; }
     function animateSlot() { let m=false; [0,1,2].forEach(i=>{ if(speed[i]>0){ m=true; if(stopping[i]){ let d=targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i];speed[i]=0;}else pos[i]+=d*0.15; }else{ pos[i]-=speed[i]; if(pos[i]<=-1000)pos[i]=0; } document.getElementById(`s${i}`).style.top=pos[i]+"px"; } }); if(m) requestAnimationFrame(animateSlot); }
     
-    function toggleMobile() { isMob=!isMob; document.getElementById('joystick-container').style.display=isMob?'block':'none'; }
-    function closeUI() { document.getElementById('ui').classList.remove('active'); }
+    function toggleMobile() { isMob=!isMob; document.getElementById('joystick-container').style.display=isMob?'block':'none'; if(!isMob) renderer.domElement.requestPointerLock(); }
+    function closeUI() { document.getElementById('ui').classList.remove('active'); document.exitPointerLock(); }
     function resetGame() { credit=100; document.getElementById('credit').innerText=credit; }
     
-    document.addEventListener('mousedown', (e) => { 
+    document.addEventListener('mousedown', () => { 
         if(!isMob && !document.getElementById('ui').classList.contains('active') && !isTyping) {
-            document.getElementById('ui').classList.add('active'); 
+            const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
+            if(ray.intersectObjects(machines).length > 0) document.getElementById('ui').classList.add('active');
+            else renderer.domElement.requestPointerLock();
         }
     });
     document.addEventListener('keydown', e => { if(e.key==='Enter') sendChat(); });
