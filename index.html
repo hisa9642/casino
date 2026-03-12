@@ -2,8 +2,10 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>8-LINE SLOT - Multiplay</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
         body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
@@ -43,7 +45,7 @@
 <div id="crosshair"></div>
 <div id="win-effect-container"></div>
 <div id="three-canvas"></div>
-<div id="multi-status">P2P Connecting...</div>
+<div id="multi-status">Initializing...</div>
 
 <div id="ui">
     <div class="slot-container" id="main-container">
@@ -72,17 +74,16 @@
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
     // --- スロットロジック (維持) ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
     let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
     let isFever = false, isSuperFever = false, feverRounds = 0;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playTone(freq, type, dur, vol=0.1) { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }
+    function playTone(freq, type, dur, vol=0.1) { try { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); } catch(e){} }
     const sounds = { stop: () => playTone(440, 'sine', 0.1), winLine: () => playTone(880, 'square', 0.2), coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } };
-    function saveGame() { localStorage.setItem('slot_credit', credit); }
-    function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
+    function saveGame() { localStorage.setItem('slot_credit_v5', credit); }
+    function loadGame() { let s = localStorage.getItem('slot_credit_v5'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
     function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); document.getElementById('credit').innerText = credit; } }
     function shuffleReels() { const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒']; [0,1,2].forEach(i => { let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase); REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5); document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); }); }
     function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
@@ -116,15 +117,11 @@
     }
     for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    // --- 通信 (GitHub対応版) ---
+    // --- 通信 (中継方式) ---
     const roomNum = prompt("部屋番号を入力してください", "777") || "777";
     const myId = "P" + Math.floor(Math.random() * 9000 + 1000);
     const hostId = "slot-room-" + roomNum + "-host";
-    
-    // GitHub(https)環境で通信を通すための設定
-    const peerConfig = {
-        config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
-    };
+    const peerConfig = { config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] } };
     let peer = new Peer(myId, peerConfig);
     let connections = [];
     let hostConn = null;
