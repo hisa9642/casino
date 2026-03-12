@@ -2,13 +2,13 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Single Player</title>
+    <title>8-LINE SLOT - 3D Environment</title>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
         body { margin: 0; overflow: hidden; background: #fff; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         
-        /* 操作UI */
+        /* スマホ用ジョイスティック */
         #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
         #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
         #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
@@ -83,121 +83,30 @@
     let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
     let isFever = false, isSuperFever = false, feverRounds = 0;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    function playTone(freq, type, dur, vol=0.1) { 
-        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); 
-        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); 
-        gain.gain.setValueAtTime(vol, audioCtx.currentTime); 
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); 
-        osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); 
-    }
-    const sounds = { 
-        stop: () => playTone(440, 'sine', 0.1), 
-        winLine: () => playTone(880, 'square', 0.2), 
-        coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), 
-        fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } 
-    };
-
+    function playTone(freq, type, dur, vol=0.1) { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }
+    const sounds = { stop: () => playTone(440, 'sine', 0.1), winLine: () => playTone(880, 'square', 0.2), coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } };
     function saveGame() { localStorage.setItem('slot_credit', credit); }
     function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } }
     function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); document.getElementById('credit').innerText = credit; } }
-
-    function shuffleReels() { 
-        const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; 
-        const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; 
-        const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒']; 
-        [0,1,2].forEach(i => { 
-            let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase); 
-            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5); 
-            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); 
-        }); 
-    }
-
+    function shuffleReels() { const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒']; [0,1,2].forEach(i => { let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase); REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5); document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); }); }
     function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
     function maxBet() { changeBet(100); }
-
-    function start() { 
-        if(speed.some(s=>s>0) || credit < bet) return; 
-        if(audioCtx.state === 'suspended') audioCtx.resume(); 
-        document.getElementById('win-effect-container').innerHTML = ''; 
-        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } 
-        shuffleReels(); credit -= bet; saveGame(); 
-        document.getElementById('credit').innerText = credit; 
-        let lbl = isSuperFever ? "SUPER" : "FEVER"; 
-        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "SPINNING..."; 
-        speed = [55, 55, 55]; stopping = [false,false,false]; 
-        [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false); 
-        animateReels(); 
-    }
-
+    function start() { if(speed.some(s=>s>0) || credit < bet) return; if(audioCtx.state === 'suspended') audioCtx.resume(); document.getElementById('win-effect-container').innerHTML = ''; if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } shuffleReels(); credit -= bet; saveGame(); document.getElementById('credit').innerText = credit; let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "SPINNING..."; speed = [55, 55, 55]; stopping = [false,false,false]; [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false); animate(); }
     function stopR(i) { sounds.stop(); let cur = Math.abs(pos[i]); let idx = Math.ceil(cur/80)+1; targetPos[i] = -((idx+1)*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
+    function animate() { let m = false; [0,1,2].forEach(i => { if(speed[i] > 0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } }); if(m) requestAnimationFrame(animate); else if(stopping.every(s=>s)) check(); }
+    async function check() { const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; let winCnt = 0, mults = []; lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); if(mults.length > 0) { const container = document.getElementById('win-effect-container'); let currentTotal = 1; for(let i=0; i<mults.length; i++) { currentTotal *= mults[i]; if(winCnt >= 2) { const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); } } const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } } else { if(isFever || isSuperFever) feverRounds--; } if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; saveGame(); }
 
-    function animateReels() { 
-        let moving = false; 
-        [0,1,2].forEach(i => { 
-            if(speed[i] > 0) { 
-                moving = true; 
-                if(stopping[i]) { 
-                    let d = targetPos[i]-pos[i]; 
-                    if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; 
-                } else { 
-                    pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; 
-                } 
-                document.getElementById(`s${i}`).style.top = pos[i]+"px"; 
-            } 
-        }); 
-        if(moving) requestAnimationFrame(animateReels); 
-        else if(stopping.every(s=>s)) checkResult(); 
-    }
-
-    async function checkResult() { 
-        const grid = [0,1,2].map(i => { 
-            let off = Math.abs(Math.round(pos[i]/80)); 
-            return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; 
-        }); 
-        const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; 
-        let winCnt = 0, mults = []; 
-        lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); 
-
-        if(mults.length > 0) { 
-            const container = document.getElementById('win-effect-container'); 
-            let currentTotal = 1; 
-            for(let i=0; i<mults.length; i++) { 
-                currentTotal *= mults[i]; 
-                if(winCnt >= 2) { 
-                    const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; 
-                    container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); 
-                } 
-            } 
-            const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; 
-            container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); 
-            credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); 
-
-            if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } 
-            else { 
-                if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } 
-                else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } 
-            } 
-        } else { if(isFever || isSuperFever) feverRounds--; } 
-
-        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } 
-        let lbl = isSuperFever ? "SUPER" : "FEVER"; 
-        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; 
-        saveGame(); 
-    }
-
-    // --- 3D 空間演出 ---
+    // --- 3D 空間 ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.getElementById('three-canvas').appendChild(renderer.domElement);
-    
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
 
-    // 灰色に変更された床と天井
+    // 床と天井を灰色に維持
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
     
@@ -259,16 +168,13 @@
             currentYaw += (targetYaw - currentYaw) * 0.15;
             currentPitch += (targetPitch - currentPitch) * 0.15;
             camera.rotation.set(currentPitch, currentYaw, 0, 'YXZ');
-            
             let wishDir = new THREE.Vector3();
             if(isMobile) { wishDir.x = joyDir.x; wishDir.z = joyDir.y; }
             else { if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1; }
-            
             wishDir.normalize().applyQuaternion(camera.quaternion); wishDir.y = 0;
             velocity.addScaledVector(wishDir, 0.02); velocity.multiplyScalar(0.85);
             if (velocity.length() > 0.01) { bobTime += 0.15; camera.position.y = -1 + Math.sin(bobTime) * 0.06; }
             camera.position.add(velocity);
-            
             if(Math.abs(camera.position.x) > 9.5) camera.position.x = Math.sign(camera.position.x) * 9.5;
             if(Math.abs(camera.position.z) > 29.5) camera.position.z = Math.sign(camera.position.z) * 29.5;
         }
