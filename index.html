@@ -101,15 +101,13 @@
     document.getElementById('three-canvas').appendChild(renderer.domElement);
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
-
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x888888 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
     const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
     const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw1.position.set(-10, 0, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
     const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw2.position.set(10, 0, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
     const bw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); bw.position.set(0, 0, 30); bw.rotation.y = Math.PI; scene.add(bw);
-    const fw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); fw.position.set(0, 0, -30); scene.add(fw);
-
+    const fw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); fw.position.set(0, 0, -30); fw.rotation.y = 0; scene.add(fw);
     const machines = [];
     function createMachine(x, z) {
         const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
@@ -118,11 +116,16 @@
     }
     for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    // --- 通信 (人が表示される中継ロジック) ---
+    // --- 通信 (GitHub対応版) ---
     const roomNum = prompt("部屋番号を入力してください", "777") || "777";
     const myId = "P" + Math.floor(Math.random() * 9000 + 1000);
     const hostId = "slot-room-" + roomNum + "-host";
-    let peer = new Peer(myId);
+    
+    // GitHub(https)環境で通信を通すための設定
+    const peerConfig = {
+        config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+    };
+    let peer = new Peer(myId, peerConfig);
     let connections = [];
     let hostConn = null;
     const otherPlayers = {};
@@ -139,7 +142,7 @@
     }
 
     function startAsHost() {
-        const hostPeer = new Peer(hostId);
+        const hostPeer = new Peer(hostId, peerConfig);
         hostPeer.on('open', () => { document.getElementById('multi-status').innerText = `HOSTING\nROOM: ${roomNum}`; });
         hostPeer.on('connection', (conn) => { connections.push(conn); setupConn(conn); });
     }
@@ -173,13 +176,11 @@
     // --- 操作系 ---
     let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0, isMobile = false, joyDir = {x:0, y:0};
     camera.position.set(0, -1, 15);
-
     function updateUIScale() { const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
     window.addEventListener('resize', updateUIScale);
     function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none'; }
     function toggleSlot(o){ updateUIScale(); document.getElementById('ui').classList.toggle('active',o); if(o) document.exitPointerLock(); }
     function closeUI(){ toggleSlot(false); }
-
     const joyContainer = document.getElementById('joystick-container');
     const joyKnob = document.getElementById('joystick-knob');
     joyContainer.addEventListener('touchmove', (e) => {
@@ -191,7 +192,6 @@
         joyDir = {x: dx/50, y: dy/50};
     }, {passive: false});
     joyContainer.addEventListener('touchend', () => { joyKnob.style.transform = `translate(-50%, -50%)`; joyDir = {x:0, y:0}; });
-
     document.addEventListener('mousedown', () => {
         if(document.getElementById('ui').classList.contains('active')) return;
         const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
@@ -201,12 +201,10 @@
     document.addEventListener('mousemove', e => { if (document.pointerLockElement === renderer.domElement) { targetYaw -= e.movementX * 0.002; targetPitch -= e.movementY * 0.002; targetPitch = Math.max(-1.5, Math.min(1.5, targetPitch)); } });
     document.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=true; if(k==='s')moveDir.b=true; if(k==='a')moveDir.l=true; if(k==='d')moveDir.r=true; });
     document.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='w')moveDir.f=false; if(k==='s')moveDir.b=false; if(k==='a')moveDir.l=false; if(k==='d')moveDir.r=false; });
-
     function initGame() { loadGame(); shuffleReels(); updateUIScale(); 
         document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div class="pay-item"><span>${s}</span><span>x${v}</span></div>`).join('');
         loop(); 
     }
-
     let lastBroad = 0;
     function loop() {
         requestAnimationFrame(loop);
