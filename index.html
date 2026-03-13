@@ -3,32 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Casino - Custom BJ & Reels</title>
+    <title>Casino - Slot & BJ</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; user-select: none; }
+        :root { --gold: #ffd700; }
+        body { margin: 0; overflow: hidden; background: #88ccff; font-family: sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        #multi-status { position: fixed; top: 10px; right: 10px; z-index: 3000; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; font-size: 11px; border-radius: 5px; pointer-events: none; }
         
+        #multi-status { position: fixed; top: 10px; right: 10px; z-index: 3000; color: #0f0; background: rgba(0,0,0,0.8); padding: 8px; font-size: 11px; border-radius: 5px; pointer-events: none; white-space: pre-line; }
+        #chat-container { position: fixed; bottom: 20px; left: 20px; z-index: 3000; width: 200px; pointer-events: auto; }
+        #chat-log { height: 100px; background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; overflow-y: auto; padding: 5px; border-radius: 5px; margin-bottom: 5px; }
+        #chat-input { width: 100%; background: rgba(255,255,255,0.2); border: 1px solid #fff; color: #fff; padding: 5px; box-sizing: border-box; font-size: 16px; }
+
+        #mobile-toggle { position: fixed; top: 10px; left: 10px; z-index: 2000; padding: 10px; background: #444; color: white; border: 1px solid #fff; }
+        #joystick-container { position: fixed; bottom: 30px; right: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
+        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+
         .game-ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.2s; }
         .game-ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
-        .panel { width: 400px; background: rgba(10, 25, 10, 0.95); border: 4px solid #5d4037; border-radius: 20px; padding: 20px; color: white; text-align: center; }
-        
-        .bet-input { width: 100px; font-size: 24px; text-align: center; background: #222; color: #fff; border: 2px solid gold; margin: 15px; }
-        .fever-msg { font-size: 32px; color: #ff0; text-shadow: 0 0 10px red; font-weight: bold; margin-bottom: 10px; }
-        
-        #joystick-container { position: fixed; bottom: 30px; right: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 2000; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #chat-container { position: fixed; bottom: 20px; left: 20px; z-index: 3000; width: 220px; }
-        #chat-log { height: 80px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; overflow-y: auto; padding: 5px; border-radius: 5px; margin-bottom: 5px; }
-        #chat-input { width: 100%; padding: 8px; background: rgba(255,255,255,0.2); border: 1px solid #fff; color: #fff; box-sizing: border-box; }
+
+        /* Slot UI */
+        .slot-container { width: 450px; height: 750px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; position: relative; }
+        .lcd { width: 85%; height: 80px; background: #000; margin-top: 20px; border: 3px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #status-text { color: #f00; font-size: 1.8rem; }
+        .reels { display: flex; gap: 10px; background: #000; padding: 10px; margin: 15px 0; border: 5px solid #666; }
+        .reel-box { width: 100px; height: 240px; background: #fff; overflow: hidden; position: relative; }
+        .strip { position: absolute; width: 100%; top: 0; left: 0; }
+        .symbol { height: 80px; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: #000; border-bottom: 1px solid #ddd; }
+        .lever { width: 60px; height: 60px; background: radial-gradient(#666, #222); border-radius: 50%; cursor: pointer; }
+        .stop-btn { width: 80px; height: 80px; border-radius: 50%; background: #ccc; font-weight: bold; cursor: pointer; }
+
+        /* BJ UI */
+        .bj-container { width: 500px; background: #063; border: 10px solid #3d2b1f; border-radius: 40px; padding: 20px; color: white; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px #000; }
+        .bj-section { width: 100%; background: rgba(0,0,0,0.3); border-radius: 15px; margin: 10px 0; padding: 10px; box-sizing: border-box; }
+        .card-area { display: flex; gap: 10px; justify-content: center; min-height: 90px; margin-top: 5px; }
+        .card { width: 55px; height: 80px; background: white; border-radius: 5px; color: black; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+        .bj-btns { display: flex; gap: 10px; margin: 10px 0; }
+        .bj-btns button { padding: 12px 24px; font-weight: bold; cursor: pointer; border-radius: 5px; border: none; }
+        #bj-msg { font-size: 1.5rem; color: #ffeb3b; font-weight: bold; margin-bottom: 10px; height: 30px; }
+
+        #crosshair { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; opacity: 0.5; }
     </style>
 </head>
 <body onload="initAll()">
 
+<button id="mobile-toggle" onclick="toggleMobile()">Mobile Mode</button>
 <div id="joystick-container"><div id="joystick-knob"></div></div>
-<div id="multi-status">Connecting...</div>
+<div id="crosshair"></div>
+<div id="multi-status">Loading...</div>
 <div id="three-canvas"></div>
 
 <div id="chat-container">
@@ -36,250 +59,273 @@
     <input type="text" id="chat-input" placeholder="Message..." onkeydown="if(event.key==='Enter') sendChat()">
 </div>
 
+<div id="ui-slot" class="game-ui">
+    <div class="slot-container">
+        <div style="width:100%; padding:10px;"><button onclick="closeAllUI()">EXIT</button></div>
+        <div class="lcd"><div id="status-text">READY</div></div>
+        <div class="reels">
+            <div class="reel-box"><div id="s0" class="strip"></div></div>
+            <div class="reel-box"><div id="s1" class="strip"></div></div>
+            <div class="reel-box"><div id="s2" class="strip"></div></div>
+        </div>
+        <div style="color:red; font-size:1.5rem; margin-bottom:10px;">Coin: <span class="cur-credit">0</span> | Bet: 3</div>
+        <div class="lever" onclick="startSlot()"></div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button id="b0" class="stop-btn" disabled onclick="stopSlot(0)">STOP</button>
+            <button id="b1" class="stop-btn" disabled onclick="stopSlot(1)">STOP</button>
+            <button id="b2" class="stop-btn" disabled onclick="stopSlot(2)">STOP</button>
+        </div>
+    </div>
+</div>
+
 <div id="ui-bj" class="game-ui">
-    <div class="panel">
-        <div style="text-align:right;"><button onclick="closeAllUI()">EXIT</button></div>
-        
-        <div id="bj-menu">
-            <h2>BLACKJACK FEVER</h2>
-            <button onclick="bjSelectMode('cpu')" style="padding:15px; margin:10px; width:150px;">CPU対戦</button>
-            <button onclick="bjSelectMode('multi')" style="padding:15px; margin:10px; width:150px;">マルチプレイ</button>
+    <div class="bj-container">
+        <div style="width:100%;"><button onclick="closeAllUI()">EXIT</button></div>
+        <div class="bj-section" style="border-left: 5px solid #f44;">
+            <div style="font-size: 0.9rem; opacity: 0.8;">DEALER</div>
+            <div id="dealer-cards" class="card-area"></div>
         </div>
-
-        <div id="bj-wait" style="display:none;"><p>対戦相手を待っています...</p></div>
-
-        <div id="bj-bet" style="display:none;">
-            <div id="fever-notice" class="fever-msg" style="display:none;">🔥 FEVER X<span id="fever-val">1</span> 🔥</div>
-            <h3>BET (1-100)</h3>
-            <input type="number" id="bet-val" class="bet-input" value="10" min="1" max="100">
-            <br><button id="btn-bet-confirm" onclick="bjConfirmBet()" style="padding:10px 30px;">決定</button>
+        <div id="bj-msg"></div>
+        <div class="bj-section" style="border-left: 5px solid #4af;">
+            <div style="font-size: 0.9rem; opacity: 0.8;">PLAYER (<span id="player-score">0</span>)</div>
+            <div id="player-cards" class="card-area"></div>
         </div>
-
-        <div id="bj-game" style="display:none;">
-            <div style="display:flex; justify-content:space-around; margin-bottom:10px;">
-                <div>OPP: <span id="score-opp">0</span></div>
-                <div>YOU: <span id="score-you">0</span></div>
-            </div>
-            <div id="bj-result" style="font-weight:bold; color:yellow; height:30px;"></div>
-            <div class="bj-btns" style="margin-top:15px;">
-                <button id="btn-hit" onclick="bjHit()" style="padding:12px 25px; background:green; color:white;">HIT</button>
-                <button id="btn-stand" onclick="bjStand()" style="padding:12px 25px; background:blue; color:white;">STAND</button>
-            </div>
+        <div style="color:gold; font-size:1.2rem; margin:10px;">Coin: <span class="cur-credit">0</span></div>
+        <div class="bj-btns">
+            <button id="bj-deal-btn" onclick="bjStart()" style="background: #ffc107;">DEAL (10)</button>
+            <button id="bj-hit-btn" disabled onclick="bjHit()" style="background: #4caf50; color: white;">HIT</button>
+            <button id="bj-stand-btn" disabled onclick="bjStand()" style="background: #2196f3; color: white;">STAND</button>
         </div>
     </div>
 </div>
 
 <script>
     let credit = 100;
-    let bjMode = '', bjFeverMult = 1, currentBet = 0;
-    let myScore = 0, oppScore = 0, myCards = [], oppCards = [];
-    
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function updateCreditUI() { document.querySelectorAll('.cur-credit').forEach(el => el.innerText = credit); }
+    function saveGame() { localStorage.setItem('slot_credit', credit); updateCreditUI(); }
+    function playTone(f, t, d, v=0.1) { try { const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type=t; o.frequency.setValueAtTime(f, audioCtx.currentTime); g.gain.setValueAtTime(v, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime+d); o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+d); } catch(e){} }
+
+    // --- SLOT LOGIC ---
+    const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
+    let REELS_DATA = [[],[],[]], pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
+    function startSlot() {
+        if(speed.some(s=>s>0) || credit < 3) return;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        credit -= 3; saveGame();
+        document.getElementById('status-text').innerText = "SPINNING";
+        [0,1,2].forEach(i => {
+            REELS_DATA[i] = Object.keys(PAYS).sort(()=>Math.random()-0.5);
+            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join('');
+            speed[i] = 40 + Math.random()*10; stopping[i] = false;
+            document.getElementById(`b${i}`).disabled = false;
+        });
+        animateSlot();
+    }
+    function stopSlot(i) { playTone(440, 'sine', 0.1); let cur = Math.abs(pos[i]), idx = Math.ceil(cur/80)+1; targetPos[i] = -(idx*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
+    function animateSlot() {
+        let m = false;
+        [0,1,2].forEach(i => {
+            if(speed[i] > 0) {
+                m = true;
+                if(stopping[i]) {
+                    let d = targetPos[i]-pos[i];
+                    if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.2;
+                } else {
+                    pos[i]-=speed[i]; if(pos[i]<=-800) pos[i]=0;
+                }
+                document.getElementById(`s${i}`).style.top = pos[i]+"px";
+            }
+        });
+        if(m) requestAnimationFrame(animateSlot); else checkSlot();
+    }
+    function checkSlot() {
+        const res = [0,1,2].map(i => { let idx = Math.abs(Math.round(pos[i]/80)); return REELS_DATA[i][(idx+1)%REELS_DATA[i].length]; });
+        if(res[0] === res[1] && res[1] === res[2]) {
+            let win = 3 * PAYS[res[0]]; credit += win;
+            document.getElementById('status-text').innerText = "WIN: " + win;
+            playTone(880, 'square', 0.3);
+        } else { document.getElementById('status-text').innerText = "RETRY"; }
+        saveGame();
+    }
+
+    // --- BJ LOGIC ---
+    let bjDeck = [], bjPlayer = [], bjDealer = [];
+    function bjStart() {
+        if(credit < 10) return;
+        credit -= 10; saveGame(); document.getElementById('bj-msg').innerText = "";
+        bjDeck = []; const suits = ['♠','♥','♦','♣'], ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+        for(let s of suits) for(let r of ranks) bjDeck.push({s,r});
+        bjDeck.sort(()=>Math.random()-0.5);
+        bjPlayer = [bjDeck.pop(), bjDeck.pop()]; bjDealer = [bjDeck.pop(), bjDeck.pop()];
+        document.getElementById('bj-deal-btn').disabled = true;
+        document.getElementById('bj-hit-btn').disabled = false; document.getElementById('bj-stand-btn').disabled = false;
+        renderBJ();
+    }
+    function getBJScore(hand) {
+        let s = 0, a = 0;
+        for(let c of hand) { if(c.r==='A') a++; else if(['J','Q','K'].includes(c.r)) s+=10; else s+=parseInt(c.r); }
+        for(let i=0; i<a; i++) s += (s+11<=21)?11:1; return s;
+    }
+    function renderBJ(show = false) {
+        document.getElementById('player-cards').innerHTML = bjPlayer.map(c=>`<div class="card">${c.r}${c.s}</div>`).join('');
+        document.getElementById('dealer-cards').innerHTML = bjDealer.map((c,i)=>(i===0||show)?`<div class="card">${c.r}${c.s}</div>`:`<div class="card">?</div>`).join('');
+        document.getElementById('player-score').innerText = getBJScore(bjPlayer);
+        if(!show && getBJScore(bjPlayer) > 21) bjEnd("BUST! LOSE");
+    }
+    function bjHit() { bjPlayer.push(bjDeck.pop()); renderBJ(); }
+    function bjStand() {
+        while(getBJScore(bjDealer) < 17) bjDealer.push(bjDeck.pop());
+        renderBJ(true); const ps = getBJScore(bjPlayer), ds = getBJScore(bjDealer);
+        if(ds > 21 || ps > ds) { credit += 20; bjEnd("WIN! +20"); }
+        else if(ps < ds) { bjEnd("LOSE"); }
+        else { credit += 10; bjEnd("PUSH"); }
+        saveGame();
+    }
+    function bjEnd(m) {
+        document.getElementById('bj-msg').innerText = m;
+        document.getElementById('bj-deal-btn').disabled = false; document.getElementById('bj-hit-btn').disabled = true; document.getElementById('bj-stand-btn').disabled = true;
+    }
+
     // --- 3D SCENE ---
     const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x88ccff);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('three-canvas').appendChild(renderer.domElement);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(5, 10, 7); scene.add(sun);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-    // Floor (Checkered)
-    const floorGeo = new THREE.PlaneGeometry(100, 100, 20, 20);
+    // Floor (Tile)
+    const floorSize = 100, floorTiles = 20;
+    const floorGeo = new THREE.PlaneGeometry(floorSize, floorSize, floorTiles, floorTiles);
     const floorMat = new THREE.MeshStandardMaterial({ vertexColors: true });
     const colors = [];
-    for(let i=0; i<=20; i++) for(let j=0; j<=20; j++) {
-        const c = (i+j)%2===0 ? 0.4 : 0.2; colors.push(c,c,c);
+    for(let i=0; i<=floorTiles; i++) {
+        for(let j=0; j<=floorTiles; j++) {
+            const c = (i+j)%2 === 0 ? 1 : 0.8; colors.push(c,c,c);
+        }
     }
     floorGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI/2; floor.position.y = -4; scene.add(floor);
 
-    // Machines
-    const slotReels = [];
-    function createSlot(x, z) {
-        const g = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(3, 5, 2), new THREE.MeshStandardMaterial({color: 0x222}));
-        g.add(body);
-        for(let i=0; i<3; i++) {
-            const r = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.6, 16), new THREE.MeshStandardMaterial({color: 0xfff}));
-            r.rotation.z = Math.PI/2; r.position.set((i-1)*0.8, 0.5, 0.8);
-            g.add(r); slotReels.push(r);
+    const machines = [];
+    function addObj(x, z, type) {
+        let geo, mat;
+        if(type === 'slot') {
+            geo = new THREE.BoxGeometry(2, 4, 1.2);
+            mat = new THREE.MeshStandardMaterial({color: 0x222222});
+        } else {
+            geo = new THREE.BoxGeometry(4, 1.5, 2.5);
+            mat = new THREE.MeshStandardMaterial({color: 0x004411});
         }
-        g.position.set(x, -1.5, z); g.userData = {type: 'slot'}; scene.add(g); return g;
+        const m = new THREE.Mesh(geo, mat);
+        m.position.set(x, type==='slot'?-2:-3.2, z);
+        m.userData = { type }; scene.add(m); machines.push(m);
     }
-    
-    const bjCards3D = [];
-    function createBJTable(x, z) {
-        const g = new THREE.Group();
-        const t = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3, 0.4, 32), new THREE.MeshStandardMaterial({color: 0x052}));
-        t.position.y = -1.8; g.add(t);
-        g.position.set(x, -1, z); g.userData = {type: 'bj'}; scene.add(g); return g;
-    }
+    for(let i=-2; i<=2; i++) addObj(-8, i*6, 'slot');
+    addObj(2, 0, 'bj');
 
-    createSlot(-6, 0); createBJTable(6, 0);
+    // --- CONTROLS ---
+    let targetP = 0, targetY = 0, currP = 0, currY = 0, vel = new THREE.Vector3(), moveDir = {f:0,b:0,l:0,r:0};
+    let isMobile = false, joy = {x:0, y:0}, touchId = null, lookId = null;
+    camera.position.set(0, -1, 10);
 
-    // --- BJ LOGIC ---
-    function bjSelectMode(m) {
-        bjMode = m;
-        document.getElementById('bj-menu').style.display = 'none';
-        if(m === 'multi') {
-            document.getElementById('bj-wait').style.display = 'block';
-            setTimeout(() => { // 接続偽装
-                document.getElementById('bj-wait').style.display = 'none';
-                showBetPhase();
-            }, 1500);
-        } else { showBetPhase(); }
-    }
+    function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile?'block':'none'; }
+    function closeAllUI() { document.querySelectorAll('.game-ui').forEach(u=>u.classList.remove('active')); }
 
-    function showBetPhase() {
-        document.getElementById('bj-bet').style.display = 'block';
-        const notice = document.getElementById('fever-notice');
-        if(bjFeverMult > 1) {
-            notice.style.display = 'block';
-            document.getElementById('fever-val').innerText = bjFeverMult;
-        } else { notice.style.display = 'none'; }
-        // ベットボタン制御
-        document.getElementById('btn-bet-confirm').style.display = (credit >= 1) ? 'inline-block' : 'none';
-    }
-
-    function bjConfirmBet() {
-        const v = parseInt(document.getElementById('bet-val').value);
-        if(v < 1 || v > 100 || v > credit) return;
-        currentBet = v; credit -= v; updateCredit();
-        document.getElementById('bj-bet').style.display = 'none';
-        document.getElementById('bj-game').style.display = 'block';
-        bjInitGame();
-    }
-
-    function bjInitGame() {
-        myScore = 0; oppScore = 0; myCards = []; oppCards = [];
-        document.getElementById('bj-result').innerText = "";
-        document.getElementById('btn-hit').disabled = false;
-        document.getElementById('btn-stand').disabled = false;
-        clearCards3D(); updateBJUI();
-    }
-
-    function bjHit() {
-        const n = Math.floor(Math.random()*11)+1;
-        myScore += n; addCard3D(n, true);
-        updateBJUI();
-        if(myScore >= 21) bjCheckFeverOrBust();
-    }
-
-    function bjCheckFeverOrBust() {
-        document.getElementById('btn-hit').disabled = true;
-        if(myScore === 21) {
-            document.getElementById('bj-result').innerText = "FEVER!! 21!";
-            bjFeverMult *= 10;
-            setTimeout(() => { closeAllUI(); openBJ(); }, 2000);
-        } else { bjStand(); }
-    }
-
-    function bjStand() {
-        document.getElementById('btn-hit').disabled = true;
-        document.getElementById('btn-stand').disabled = true;
-        while(oppScore < 17) {
-            const n = Math.floor(Math.random()*11)+1;
-            oppScore += n; addCard3D(n, false);
-        }
-        updateBJUI();
-        bjEnd();
-    }
-
-    function bjEnd() {
-        let win = false;
-        const res = document.getElementById('bj-result');
-        if(myScore > 21) res.innerText = "BUST!";
-        else if(oppScore > 21 || myScore > oppScore) { win = true; res.innerText = "WIN!"; }
-        else if(myScore < oppScore) res.innerText = "LOSE";
-        else { res.innerText = "DRAW"; credit += currentBet; }
-
-        if(win) {
-            credit += currentBet * (bjFeverMult > 1 ? bjFeverMult : 2);
-            bjFeverMult = 1; // 勝利で倍率消化
-        } else if(myScore > 21 || (oppScore <= 21 && myScore < oppScore)) {
-            bjFeverMult = 1; // 敗北でリセット
-        }
-        updateCredit();
-        setTimeout(showBetPhase, 2000);
-    }
-
-    function addCard3D(val, isPlayer) {
-        const geo = new THREE.PlaneGeometry(0.5, 0.7);
-        const mat = new THREE.MeshStandardMaterial({color: 0xffffff, side: THREE.DoubleSide});
-        const card = new THREE.Mesh(geo, mat);
-        const offset = (isPlayer ? myCards.length : oppCards.length) * 0.6;
-        card.position.set(6 + (isPlayer?-1:1), -1.2, (isPlayer?1:-1) + offset);
-        card.rotation.x = -Math.PI/2;
-        scene.add(card); bjCards3D.push(card);
-        if(isPlayer) myCards.push(val); else oppCards.push(val);
-    }
-
-    function clearCards3D() { bjCards3D.forEach(c => scene.remove(c)); bjCards3D.length = 0; }
-    function updateBJUI() {
-        document.getElementById('score-you').innerText = myScore;
-        document.getElementById('score-opp').innerText = oppScore;
-    }
-    function updateCredit() { document.getElementById('multi-status').innerText = "Coin: " + credit; }
-
-    // --- BASE SYSTEMS ---
-    let targetY = 0, currY = 0, moveDir = {f:0,b:0,l:0,r:0}, vel = new THREE.Vector3();
-    let isMobile = false, joy = {x:0, y:0}, lookId = null;
-
-    function initAll() {
-        updateCredit();
-        loop();
-    }
-
-    function openBJ() {
-        closeAllUI();
-        document.getElementById('ui-bj').classList.add('active');
-        document.getElementById('bj-menu').style.display = 'block';
-        document.getElementById('bj-game').style.display = 'none';
-        document.getElementById('bj-bet').style.display = 'none';
-    }
-
-    function closeAllUI() { document.querySelectorAll('.game-ui').forEach(u => u.classList.remove('active')); }
-
-    // Click Detection
-    document.addEventListener('mousedown', e => {
+    // PC Interaction
+    document.addEventListener('mousedown', (e) => {
         if(document.querySelector('.game-ui.active') || e.target.closest('#chat-container')) return;
         const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
-        const inter = ray.intersectObjects(scene.children, true);
-        const obj = inter.find(i => i.object.parent && i.object.parent.userData.type);
-        if(obj) {
-            const type = obj.object.parent.userData.type;
-            if(camera.position.distanceTo(obj.object.parent.position) < 6) {
-                if(type === 'bj') openBJ();
+        const inter = ray.intersectObjects(machines);
+        if(inter.length > 0 && camera.position.distanceTo(inter[0].object.position) < 5) {
+            updateUIScale();
+            document.getElementById('ui-' + inter[0].object.userData.type).classList.add('active');
+            document.exitPointerLock();
+        } else if(!isMobile) renderer.domElement.requestPointerLock();
+    });
+
+    // Mobile Interaction
+    const joyBox = document.getElementById('joystick-container');
+    const joyKnob = document.getElementById('joystick-knob');
+    let startX = 0, startY = 0;
+
+    window.addEventListener('touchstart', (e) => {
+        for(let t of e.changedTouches) {
+            const r = joyBox.getBoundingClientRect();
+            if(t.clientX > r.left && t.clientX < r.right && t.clientY > r.top && t.clientY < r.bottom) {
+                touchId = t.identifier;
+            } else if(!lookId && !document.querySelector('.game-ui.active')) {
+                lookId = t.identifier; startX = t.clientX; startY = t.clientY;
             }
         }
     });
 
-    // Mobile & Look
-    window.addEventListener('touchstart', e => {
+    window.addEventListener('touchmove', (e) => {
         for(let t of e.changedTouches) {
-            if(t.clientX > window.innerWidth/2) lookId = t.identifier;
-        }
-    });
-    window.addEventListener('touchmove', e => {
-        for(let t of e.changedTouches) {
-            if(t.identifier === lookId) {
-                targetY -= (t.clientX - (window.innerWidth*0.75)) * 0.0001;
+            if(t.identifier === touchId) {
+                const r = joyBox.getBoundingClientRect(), cx = r.left+50, cy = r.top+50;
+                let dx = t.clientX-cx, dy = t.clientY-cy, d = Math.sqrt(dx*dx+dy*dy);
+                if(d>40){ dx*=40/d; dy*=40/d; }
+                joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                joy = {x: dx/40, y: dy/40};
+            } else if(t.identifier === lookId) {
+                targetY -= (t.clientX - startX) * 0.005;
+                targetP -= (t.clientY - startY) * 0.005;
+                targetP = Math.max(-1.5, Math.min(1.5, targetP));
+                startX = t.clientX; startY = t.clientY;
             }
         }
+    }, {passive:false});
+
+    window.addEventListener('touchend', (e) => {
+        for(let t of e.changedTouches) {
+            if(t.identifier === touchId) { touchId = null; joy = {x:0,y:0}; joyKnob.style.transform = `translate(-50%, -50%)`; }
+            if(t.identifier === lookId) lookId = null;
+        }
     });
+
+    // 修正箇所：Math.maxの誤記修正と、INPUTタグ選択時のWASD無効化
+    document.addEventListener('mousemove', e => { if(document.pointerLockElement) { targetY-=e.movementX*0.002; targetP-=e.movementY*0.002; targetP=Math.max(-1.5, Math.min(1.5, targetP)); } });
+    window.addEventListener('keydown', e => { if(e.target.tagName==='INPUT')return; let k=e.key.toLowerCase(); if(k==='w')moveDir.f=1; if(k==='s')moveDir.b=1; if(k==='a')moveDir.l=1; if(k==='d')moveDir.r=1; });
+    window.addEventListener('keyup', e => { let k=e.key.toLowerCase(); if(k==='w')moveDir.f=0; if(k==='s')moveDir.b=0; if(k==='a')moveDir.l=0; if(k==='d')moveDir.r=0; });
+
+    // --- PEER & CHAT ---
+    const myId = "P"+Math.floor(Math.random()*9000);
+    const peer = new Peer(myId);
+    let conns = [];
+    function sendChat() {
+        const i = document.getElementById('chat-input'), v = i.value.trim(); if(!v) return;
+        conns.forEach(c => c.open && c.send({type:'chat', msg:v, id:myId}));
+        addLog("You", v); i.value = ""; i.blur();
+    }
+    function addLog(s, m) { const l = document.getElementById('chat-log'), d = document.createElement('div'); d.innerText = `${s}: ${m}`; l.appendChild(d); l.scrollTop = l.scrollHeight; }
+
+    // --- MAIN LOOP ---
+    function initAll() { 
+        let s = localStorage.getItem('slot_credit'); if(s) credit = parseInt(s); updateCreditUI();
+        peer.on('open', id => document.getElementById('multi-status').innerText = "ID: "+id);
+        peer.on('connection', c => { conns.push(c); c.on('data', d => { if(d.type==='chat') addLog(d.id, d.msg); }); });
+        loop(); 
+    }
+    function updateUIScale() { const s = Math.min(window.innerWidth/500, window.innerHeight/800, 1); document.documentElement.style.setProperty('--ui-scale', s); }
 
     function loop() {
         requestAnimationFrame(loop);
         if(!document.querySelector('.game-ui.active')) {
-            currY += (targetY - currY) * 0.1;
-            camera.rotation.set(0, currY, 0);
-            // Move logic...
+            currY += (targetY - currY) * 0.15; currP += (targetP - currP) * 0.15;
+            camera.rotation.set(currP, currY, 0, 'YXZ');
+            let wish = new THREE.Vector3();
+            if(isMobile) { wish.x = joy.x; wish.z = joy.y; }
+            else { if(moveDir.f) wish.z-=1; if(moveDir.b) wish.z+=1; if(moveDir.l) wish.x-=1; if(moveDir.r) wish.x+=1; }
+            wish.normalize().applyQuaternion(camera.quaternion); wish.y = 0;
+            vel.addScaledVector(wish, 0.02); vel.multiplyScalar(0.85);
             camera.position.add(vel);
+            if(Math.abs(camera.position.x)>45) camera.position.x *= 0.95;
+            if(Math.abs(camera.position.z)>45) camera.position.z *= 0.95;
         }
-        // Slot Animation
-        slotReels.forEach(r => { r.rotation.x += 0.05; });
         renderer.render(scene, camera);
     }
 </script>
