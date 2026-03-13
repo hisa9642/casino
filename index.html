@@ -2,29 +2,26 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT & CUSTOM BJ</title>
+    <title>8-LINE SLOT - Mobile Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
-        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; }
-        #joystick-knob { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-        #multi-status { position: fixed; bottom: 10px; right: 10px; z-index: 3000; color: #fff; background: rgba(0,0,0,0.7); padding: 10px; font-size: 12px; border-radius: 5px; white-space: pre-line; border: 1px solid #555; }
-        #chat-ui { position: fixed; bottom: 100px; left: 20px; z-index: 3000; display: flex; flex-direction: column; gap: 5px; }
-        #chat-log { width: 250px; height: 120px; background: rgba(0,0,0,0.5); color: white; font-size: 12px; overflow-y: auto; padding: 5px; border-radius: 5px; }
-        #chat-input { width: 250px; background: rgba(255,255,255,0.2); border: 1px solid #fff; color: white; border-radius: 5px; }
-
-        #ui, #bj-ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 1000; transform: scale(0); transition: 0.3s; }
+        #mobile-toggle { position: fixed; top: 10px; right: 10px; z-index: 5000; background: #444; color: white; border: 1px solid #fff; padding: 10px; border-radius: 5px; cursor: pointer; }
+        #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; z-index: 4500; display: none; touch-action: none; }
+        #joystick-knob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; }
+        #chat-container { position: fixed; bottom: 10px; right: 10px; width: 250px; height: 120px; background: rgba(0,0,0,0.6); display: flex; flex-direction: column; z-index: 4000; border-radius: 5px; }
+        #chat-box { flex: 1; overflow-y: auto; color: white; font-size: 11px; padding: 5px; }
+        #chat-input { background: #333; border: 1px solid #555; color: white; padding: 5px; outline: none; }
+        #ui, #bj-ui { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 2000; transform: scale(0); transition: 0.3s; }
         #ui.active, #bj-ui.active { transform: scale(var(--ui-scale, 1)); pointer-events: auto; }
         .slot-container, .bj-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
         .bj-container { background: #0b2e0b; border-color: #265426; }
-        
         .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
         .pay-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 5px 0; }
-        #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; text-align: center; width: 100%; }
+        #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 3000; pointer-events: none; text-align: center; width: 100%; }
         .win-pop { color: #ff0000; font-size: 4rem; font-weight: bold; text-shadow: 0 0 20px #fff, 0 0 40px gold; animation: popIn 0.5s forwards, fadeOut 0.5s 2.5s forwards; margin: 10px; }
         @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
@@ -39,28 +36,27 @@
         .stats { color: #f00; font-size: 1.8rem; display: flex; gap: 30px; margin-bottom: 15px; }
         .lever { width: 65px; height: 65px; background: radial-gradient(#666, #222); border-radius: 50%; border: 4px solid #777; cursor: pointer; }
         .stop-btn { width: 95px; height: 95px; border-radius: 50%; background: #ccc; border: 6px solid #999; font-weight: bold; cursor: pointer; }
+        .bj-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; gap: 15px; }
+        .card-row { display: flex; gap: 5px; min-height: 80px; margin: 10px 0; }
+        .card { width: 50px; height: 75px; background: white; border-radius: 5px; color: black; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 1px solid #999; }
+        .bj-btn { padding: 12px 24px; font-size: 1rem; cursor: pointer; background: #444; color: #fff; border: 2px solid #888; border-radius: 5px; width: 220px; }
         #crosshair { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; opacity: 0.8; }
-        .card-row { display: flex; gap: 5px; min-height: 80px; }
-        .card { width: 50px; height: 75px; background: white; border-radius: 5px; color: black; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
-        .bj-btn { padding: 10px 20px; font-size: 1rem; cursor: pointer; background: #444; color: #fff; border: 2px solid #888; border-radius: 5px; }
     </style>
 </head>
-<body onload="initGame()" oncontextmenu="return false;">
+<body onload="initAll()">
 
-<button id="mobile-toggle" onclick="toggleMobile()">スマホ用 ON/OFF</button>
+<div id="three-canvas"></div>
+<button id="mobile-toggle" onclick="toggleMobile()">スマホモード: OFF</button>
 <div id="joystick-container"><div id="joystick-knob"></div></div>
+<div id="chat-container">
+    <div id="chat-box"></div>
+    <input type="text" id="chat-input" placeholder="Enter to Chat" onkeydown="sendChat(event)">
+</div>
 <div id="crosshair"></div>
 <div id="win-effect-container"></div>
-<div id="three-canvas"></div>
-<div id="multi-status">Initializing...</div>
-
-<div id="chat-ui">
-    <div id="chat-log"></div>
-    <input type="text" id="chat-input" placeholder="Message..." onkeydown="if(event.key==='Enter')sendChat()">
-</div>
 
 <div id="ui">
-    <div class="slot-container" id="main-container">
+    <div class="slot-container">
         <div class="paytable" id="pay-list"></div>
         <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
             <button onclick="resetGame()" style="cursor:pointer; background: #822; color: white; border: none; padding: 5px 15px; border-radius: 5px;">RESET</button>
@@ -88,31 +84,24 @@
 
 <div id="bj-ui">
     <div class="bj-container">
-        <div style="width:100%; display:flex; justify-content:flex-end; padding:10px; box-sizing:border-box;">
+        <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
+            <div style="width:100px;"></div>
             <button onclick="closeBJ()" style="cursor:pointer; background: #444; color: white; border: none; padding: 5px 15px; border-radius: 5px;">EXIT</button>
         </div>
-        <div id="bj-mode-select" class="bj-screen">
+        <div id="bj-bet-select" class="bj-screen">
             <div style="color:gold; font-size:2rem;">BLACKJACK</div>
-            <button class="bj-btn" onclick="setBJMode('cpu')">CPUと対戦</button>
-            <button class="bj-btn" onclick="setBJMode('multi')">他プレイヤーと対戦</button>
-        </div>
-        <div id="bj-wait" class="bj-screen" style="display:none; color:white;">対戦相手を待機中...</div>
-        <div id="bj-bet-select" class="bj-screen" style="display:none;">
-            <div style="color:white;">BETを選択</div>
-            <div style="color:red; font-size:1.5rem;">COIN: <span class="bj-coin-disp">0</span></div>
-            <input type="range" id="bj-bet-range" min="1" max="100" value="10" oninput="document.getElementById('bj-bet-num').innerText=this.value">
+            <div style="color:white;">BET (1-100)</div>
             <div id="bj-bet-num" style="color:gold; font-size:2rem;">10</div>
-            <button id="bj-start-btn" class="bj-btn" onclick="bjPreStart()">開始</button>
+            <input type="range" id="bj-bet-range" min="1" max="100" value="10" oninput="document.getElementById('bj-bet-num').innerText=this.value">
+            <button class="bj-btn" onclick="bjPreStart()">START</button>
         </div>
         <div id="bj-game" class="bj-screen" style="display:none;">
-            <div id="bj-opp-info" style="color:white;">Opponent: <span id="bj-opp-score">0</span></div>
             <div class="card-row" id="bj-opp-cards"></div>
-            <hr style="width:80%;">
             <div class="card-row" id="bj-my-cards"></div>
             <div id="bj-my-info" style="color:gold;">YOU: <span id="bj-my-score">0</span></div>
-            <div id="bj-controls" style="display:flex; gap:10px;">
-                <button class="bj-btn" onclick="bjHit()">HIT</button>
-                <button class="bj-btn" onclick="bjStand()">STAND</button>
+            <div style="display:flex; gap:10px;">
+                <button class="bj-btn" style="width:100px;" onclick="bjHit()">HIT</button>
+                <button class="bj-btn" style="width:100px;" onclick="bjStand()">STAND</button>
             </div>
         </div>
     </div>
@@ -123,180 +112,304 @@
     let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
     let isFever = false, isSuperFever = false, feverRounds = 0;
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let isMobileMode = false;
 
     function playTone(freq, type, dur, vol=0.1) { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }
     const sounds = { stop: () => playTone(440, 'sine', 0.1), winLine: () => playTone(880, 'square', 0.2), coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } };
-    function saveGame() { localStorage.setItem('slot_credit', credit); document.querySelectorAll('.bj-coin-disp').forEach(e=>e.innerText=credit); }
-    function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) credit = parseInt(s); document.getElementById('credit').innerText = credit; saveGame(); }
-    function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); document.getElementById('credit').innerText = credit; } }
-
-    function initPaytable() {
-        document.getElementById('pay-list').innerHTML = Object.entries(PAYS).map(([s, v]) => `<div class="pay-item"><span>${s}${s}${s}</span><span>${v}x</span></div>`).join('');
+    
+    function shuffleReels() { 
+        const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; 
+        const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; 
+        const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒']; 
+        [0,1,2].forEach(i => { 
+            let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase); 
+            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5); 
+            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join(''); 
+        }); 
     }
-
-    function shuffleReels() {
-        const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉'];
-        const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉'];
-        const sfBase = ['7️⃣','7️⃣','7️⃣','7️⃣','🍒','🍒','🍒','🍒','7️⃣','🍒'];
-        [0,1,2].forEach(i => {
-            let base = isSuperFever ? sfBase : (isFever ? feverBase : normBase);
-            REELS_DATA[i] = [...base, ...base].sort(()=>Math.random()-0.5);
-            document.getElementById(`s${i}`).innerHTML = [...REELS_DATA[i], ...REELS_DATA[i]].map(s => `<div class="symbol">${s}</div>`).join('');
-        });
-    }
-
     function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
     function maxBet() { changeBet(100); }
-    function start() {
-        if(speed.some(s=>s>0) || credit < bet) return;
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        document.getElementById('win-effect-container').innerHTML = '';
-        shuffleReels(); credit -= bet; saveGame(); document.getElementById('credit').innerText = credit;
-        speed = [55, 55, 55]; stopping = [false,false,false];
+    function start() { 
+        if(speed.some(s=>s>0) || credit < bet) return; 
+        if(audioCtx.state === 'suspended') audioCtx.resume(); 
+        document.getElementById('win-effect-container').innerHTML = ''; 
+        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; }
+        shuffleReels(); credit -= bet; updateCredit(); 
+        let lbl = isSuperFever ? "SUPER" : "FEVER";
+        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "SPINNING...";
+        speed = [55, 55, 55]; stopping = [false,false,false]; 
         [0,1,2].forEach(i => document.getElementById(`b${i}`).disabled = false);
-        animateSlot();
+        animateSlot(); 
     }
     function stopR(i) { sounds.stop(); let cur = Math.abs(pos[i]); let idx = Math.ceil(cur/80)+1; targetPos[i] = -((idx+1)*80); stopping[i] = true; document.getElementById(`b${i}`).disabled = true; }
-    function animateSlot() {
-        let m = false;
-        [0,1,2].forEach(i => { if(speed[i] > 0) { m = true; if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } document.getElementById(`s${i}`).style.top = pos[i]+"px"; } });
-        if(m) requestAnimationFrame(animateSlot); else if(stopping.every(s=>s)) check();
+    function animateSlot() { 
+        let m = false; 
+        [0,1,2].forEach(i => { 
+            if(speed[i] > 0) { 
+                m = true; 
+                if(stopping[i]) { let d = targetPos[i]-pos[i]; if(Math.abs(d)<1){pos[i]=targetPos[i]; speed[i]=0;} else pos[i]+=d*0.15; } 
+                else { pos[i]-=speed[i]; if(pos[i]<=-1600) pos[i]=0; } 
+                document.getElementById(`s${i}`).style.top = pos[i]+"px"; 
+            } 
+        }); 
+        if(m) requestAnimationFrame(animateSlot); else if(stopping.every(s=>s)) check(); 
     }
-    async function check() {
-        const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; });
-        const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]];
-        let winCnt = 0, mults = []; lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } });
-        if(mults.length > 0) {
-            let totalMult = mults.reduce((a,b)=>a*b,1);
-            credit += bet * totalMult; saveGame(); document.getElementById('credit').innerText = credit;
-            const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.innerText = `WIN ${totalMult}x!`; document.getElementById('win-effect-container').appendChild(finalDiv);
-            sounds.fever();
-        }
+    async function check() { 
+        const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); 
+        const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; 
+        let winCnt = 0, mults = []; 
+        lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); 
+        if(mults.length > 0) { 
+            const container = document.getElementById('win-effect-container'); 
+            let currentTotal = 1; 
+            for(let i=0; i<mults.length; i++) { 
+                currentTotal *= mults[i]; 
+                if(winCnt >= 2) { 
+                    const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; 
+                    container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); 
+                } 
+            } 
+            const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; 
+            container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); updateCredit(); 
+            if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } 
+            else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } 
+            else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } 
+        } else { if(isFever || isSuperFever) feverRounds--; } 
+        if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } 
+        let lbl = isSuperFever ? "SUPER" : "FEVER";
+        document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; 
+        saveGame(); 
     }
 
-    // --- BJ ---
-    let bjMode = 'cpu', myCards = [], oppCards = [], bjDeck = [], bjBet = 10;
-    function setBJMode(m) { bjMode = m; document.getElementById('bj-mode-select').style.display = 'none'; if(m==='multi') { document.getElementById('bj-wait').style.display='flex'; broadcast({type:'bj_join'}); } else showBJBet(); }
-    function showBJBet() { document.getElementById('bj-wait').style.display='none'; document.getElementById('bj-bet-select').style.display='flex'; }
-    function bjPreStart() { bjBet = parseInt(document.getElementById('bj-bet-range').value); if(credit < bjBet) return; credit -= bjBet; saveGame(); bjStart(); }
-    function bjStart() {
-        document.getElementById('bj-bet-select').style.display='none'; document.getElementById('bj-game').style.display='flex';
-        myCards = []; oppCards = []; bjDeck = Array.from({length:52},(_,i)=>({v:(i%13)+1,s:['♠','♥','♦','♣'][Math.floor(i/13)]})).sort(()=>Math.random()-0.5);
-        bjHit(); bjHit(); updateBJ();
-    }
-    function getBJS(cards) { let s = cards.reduce((a,c)=>a+(c.v>10?10:c.v===1?11:c.v),0); let aces = cards.filter(c=>c.v===1).length; while(s>21&&aces>0){s-=10;aces--;} return s; }
-    function bjHit() { myCards.push(bjDeck.pop()); updateBJ(); if(getBJS(myCards)>21) bjEnd('LOSE'); }
-    function bjStand() { if(bjMode==='cpu') { while(getBJS(oppCards)<17) oppCards.push(bjDeck.pop()); let ms=getBJS(myCards),os=getBJS(oppCards); if(os>21||ms>os) bjEnd('WIN'); else if(ms===os) bjEnd('DRAW'); else bjEnd('LOSE'); } else broadcast({type:'bj_stand', score:getBJS(myCards)}); }
-    function bjEnd(res) { alert(res); if(res==='WIN') credit+=bjBet*2; if(res==='DRAW') credit+=bjBet; saveGame(); document.getElementById('bj-game').style.display='none'; setBJMode('cpu'); document.getElementById('bj-mode-select').style.display='flex'; }
-    function updateBJ() {
-        const render = (id, c) => document.getElementById(id).innerHTML = c.map(x=>`<div class="card" style="color:${(x.s==='♥'||x.s==='♦')?'red':'black'}">${x.v===1?'A':x.v>10?'JQK'[x.v-11]:x.v}<br>${x.s}</div>`).join('');
-        render('bj-my-cards', myCards); render('bj-opp-cards', oppCards);
-        document.getElementById('bj-my-score').innerText = getBJS(myCards); document.getElementById('bj-opp-score').innerText = getBJS(oppCards);
-        if(bjMode==='multi') broadcast({type:'bj_sync', cards:myCards, score:getBJS(myCards)});
-    }
-
-    // --- 3D / PeerJS ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('three-canvas').appendChild(renderer.domElement);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(5, 10, 7); scene.add(dl);
 
-    // 床・天井
-    const createTex = (c1, c2) => {
-        const can = document.createElement('canvas'); can.width=256; can.height=256; const ctx=can.getContext('2d');
-        ctx.fillStyle=c1; ctx.fillRect(0,0,256,256); ctx.strokeStyle=c2; ctx.lineWidth=5; ctx.strokeRect(0,0,256,256);
-        const tex = new THREE.CanvasTexture(can); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(10,20); return tex;
-    };
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({map:createTex('#333','#444')}));
-    floor.rotation.x = -Math.PI/2; floor.position.y = -4; scene.add(floor);
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({map:createTex('#222','#111')}));
-    ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x666666 })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; scene.add(floor);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0x444444 })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+    const sw1 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw1.position.set(-10, 0, 0); sw1.rotation.y = Math.PI/2; scene.add(sw1);
+    const sw2 = new THREE.Mesh(new THREE.PlaneGeometry(60, 15), wallMat); sw2.position.set(10, 0, 0); sw2.rotation.y = -Math.PI/2; scene.add(sw2);
+    const bw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); bw.position.set(0, 0, 30); bw.rotation.y = Math.PI; scene.add(bw);
+    const fw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), wallMat); fw.position.set(0, 0, -30); scene.add(fw);
 
-    const machines = [], bjTables = [], avatars = {};
-    function createBox(x, z, color, isBJ) {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({color}));
-        m.position.set(x, -2, z); scene.add(m); if(isBJ) bjTables.push(m); else machines.push(m);
+    const machines = [], bjTables = [];
+    function createMachine(x, z) {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+        body.position.set(x, -2, z); scene.add(body);
+        machines.push(body);
     }
-    for(let i=-2; i<=2; i++) { createBox(-8.5, i*8, 0x111111, false); createBox(8.5, i*8, 0x073b07, true); }
+    for(let i=-2; i<=2; i++) createMachine(-8.5, i*8);
 
-    let roomNum = prompt("Room ID", "777") || "777";
+    function createBJTable(x, z) {
+        const table = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 1, 32), new THREE.MeshStandardMaterial({ color: 0x0b2e0b }));
+        table.position.set(x, -3.5, z); scene.add(table);
+        bjTables.push(table);
+    }
+    createBJTable(5, 0);
+
+    const userName = prompt("名前を入力してください", "Player") || "Player";
+    const roomNum = prompt("部屋番号を入力", "777") || "777";
     const myId = "P-" + roomNum + "-" + Math.floor(Math.random()*9999);
     const hostId = "ROOM-" + roomNum + "-HOST";
-    const peer = new Peer(myId);
-    let conns = [];
 
-    peer.on('open', id => {
-        updateStatus(`ID: ${id}\nRoom: ${roomNum}`);
-        const c = peer.connect(hostId); setupConn(c);
-    });
-    const hostPeer = new Peer(hostId);
-    hostPeer.on('connection', c => setupConn(c));
+    function createNameTag(text) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 256; canvas.height = 64;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,256,64);
+        ctx.fillStyle = 'white'; ctx.font = '32px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(text, 128, 44);
+        const tex = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+        sprite.scale.set(2, 0.5, 1);
+        sprite.position.y = 3.2;
+        return sprite;
+    }
+
+    function createAvatar(name) {
+        const group = new THREE.Group();
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xffccaa }));
+        head.position.y = 2.4;
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.4, 0.5), new THREE.MeshStandardMaterial({ color: 0x3366ff }));
+        body.position.y = 1.3;
+        group.add(head, body);
+        const tag = createNameTag(name);
+        group.add(tag);
+        group.userData.tag = tag;
+        return group;
+    }
+
+    let peer = new Peer(myId);
+    let connections = [];
+    const otherPlayers = {};
+
+    peer.on('open', (id) => tryConnectHost());
+
+    function tryConnectHost() {
+        const conn = peer.connect(hostId);
+        setupConn(conn);
+        setTimeout(() => { if (connections.filter(c => c.open).length === 0) startAsHost(); }, 3000);
+    }
+
+    function startAsHost() {
+        const peerHost = new Peer(hostId);
+        peerHost.on('connection', setupConn);
+    }
 
     function setupConn(c) {
-        c.on('open', () => { if(!conns.find(x=>x.peer===c.peer)) conns.push(c); });
-        c.on('data', data => {
-            if(data.type==='move') {
-                if(!avatars[data.id]) { avatars[data.id] = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1, 4, 8), new THREE.MeshBasicMaterial({color:0x00ff00})); scene.add(avatars[data.id]); }
-                avatars[data.id].position.set(data.x, data.y, data.z); avatars[data.id].rotation.y = data.ry;
-                if(hostPeer.open) broadcast(data, c.peer);
+        c.on('open', () => { if(!connections.find(x=>x.peer===c.peer)) connections.push(c); });
+        c.on('data', d => {
+            if(d.type === 'move') {
+                if(!otherPlayers[d.id]) {
+                    const avatar = createAvatar(d.name || "Guest");
+                    scene.add(avatar);
+                    otherPlayers[d.id] = avatar;
+                }
+                otherPlayers[d.id].position.set(d.x, -4, d.z);
+                otherPlayers[d.id].rotation.y = d.ry;
+                if(peer.id.includes("HOST")) connections.forEach(conn => { if(conn.open && conn.peer !== c.peer) conn.send(d); });
+            } else if(d.type === 'chat') {
+                addChatMessage(d.msg, d.name);
+                showBubble(d.id, d.msg);
+                if(peer.id.includes("HOST")) connections.forEach(conn => { if(conn.open && conn.peer !== c.peer) conn.send(d); });
             }
-            if(data.type==='chat') addChat(data.msg, data.id);
-            if(data.type==='bj_join') showBJBet();
-            if(data.type==='bj_sync') { oppCards = data.cards; document.getElementById('bj-opp-score').innerText = data.score; updateBJ(); }
-            if(data.type==='bj_stand') { let ms=getBJS(myCards); if(ms>data.score) bjEnd('WIN'); else if(ms===data.score) bjEnd('DRAW'); else bjEnd('LOSE'); }
         });
+        c.on('close', () => { if(otherPlayers[c.peer]) { scene.remove(otherPlayers[c.peer]); delete otherPlayers[c.peer]; } connections = connections.filter(x => x.peer !== c.peer); });
     }
-    function broadcast(d, skipId) { conns.forEach(c => { if(c.open && c.peer !== skipId) c.send(d); }); }
 
-    // --- 操作 ---
-    let targetPitch=0, targetYaw=0, velocity=new THREE.Vector3(), moveDir={f:false,b:false,l:false,r:false}, isMobile=false, joyDir={x:0,y:0};
+    function showBubble(id, msg) {
+        const target = (id === myId) ? null : otherPlayers[id];
+        if(!target) return;
+        const originalTag = target.userData.tag;
+        const bubble = createNameTag(msg);
+        bubble.position.y = 3.8;
+        target.add(bubble);
+        setTimeout(() => target.remove(bubble), 1000);
+    }
+
+    function sendChat(e) {
+        if(e.key === 'Enter') {
+            const input = document.getElementById('chat-input');
+            if(!input.value) return;
+            const data = { type: 'chat', id: myId, name: userName, msg: input.value };
+            addChatMessage(input.value, "You");
+            connections.forEach(c => { if(c.open) c.send(data); });
+            input.value = '';
+        }
+    }
+
+    function addChatMessage(msg, sender) {
+        const box = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        div.innerText = `${sender}: ${msg}`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0;
     camera.position.set(0, -1, 15);
 
-    function toggleMobile() { isMobile=!isMobile; document.getElementById('joystick-container').style.display=isMobile?'block':'none'; }
-    function closeUI(){ document.getElementById('ui').classList.remove('active'); }
-    function closeBJ(){ document.getElementById('bj-ui').classList.remove('active'); }
+    // Joystick & Mobile Logic
+    let joyData = { x: 0, y: 0, active: false };
+    const joyContainer = document.getElementById('joystick-container');
+    const joyKnob = document.getElementById('joystick-knob');
 
-    // スマホ視点移動 (スティック外のスワイプ)
-    let touchStart={x:0,y:0};
-    window.addEventListener('touchstart', e => { touchStart.x=e.touches[0].pageX; touchStart.y=e.touches[0].pageY; });
+    function toggleMobile() {
+        isMobileMode = !isMobileMode;
+        document.getElementById('mobile-toggle').innerText = `スマホモード: ${isMobileMode ? 'ON' : 'OFF'}`;
+        joyContainer.style.display = isMobileMode ? 'block' : 'none';
+        if(!isMobileMode) document.exitPointerLock();
+    }
+
+    window.addEventListener('touchstart', e => {
+        if(!isMobileMode || document.querySelector('.active')) return;
+        const touch = e.touches[0];
+        const rect = joyContainer.getBoundingClientRect();
+        const dist = Math.hypot(touch.clientX - (rect.left + 60), touch.clientY - (rect.top + 60));
+        if(dist < 60) joyData.active = true;
+    });
+
     window.addEventListener('touchmove', e => {
-        if(isMobile && e.target.id !== 'joystick-container' && e.target.id !== 'joystick-knob') {
-            let dx = e.touches[0].pageX - touchStart.x;
-            let dy = e.touches[0].pageY - touchStart.y;
-            targetYaw -= dx * 0.005; targetPitch -= dy * 0.005;
-            touchStart.x = e.touches[0].pageX; touchStart.y = e.touches[0].pageY;
+        if(!isMobileMode || document.querySelector('.active')) return;
+        const touch = e.touches[0];
+        if(joyData.active) {
+            const rect = joyContainer.getBoundingClientRect();
+            let dx = touch.clientX - (rect.left + 60);
+            let dy = touch.clientY - (rect.top + 60);
+            const angle = Math.atan2(dy, dx);
+            const dist = Math.min(Math.hypot(dx, dy), 40);
+            joyData.x = (dist / 40) * Math.cos(angle);
+            joyData.y = (dist / 40) * Math.sin(angle);
+            joyKnob.style.transform = `translate(${joyData.x * 40}px, ${joyData.y * 40}px)`;
+        } else {
+            // Camera move
+            targetYaw -= e.changedTouches[0].pageX * 0.00002; // 感度調整
+            targetPitch -= e.changedTouches[0].pageY * 0.00002;
         }
     });
 
-    document.addEventListener('mousedown', () => {
-        if(document.getElementById('ui').classList.contains('active') || document.getElementById('bj-ui').classList.contains('active')) return;
+    window.addEventListener('touchend', () => { joyData.active = false; joyData.x = 0; joyData.y = 0; joyKnob.style.transform = 'translate(0,0)'; });
+
+    document.addEventListener('mousedown', (e) => {
+        if(document.querySelector('.active') || e.target.id === 'chat-input' || e.target.id === 'mobile-toggle') return;
         const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
-        if(ray.intersectObjects(machines).length>0) { document.getElementById('ui').classList.add('active'); document.exitPointerLock(); }
-        else if(ray.intersectObjects(bjTables).length>0) { document.getElementById('bj-ui').classList.add('active'); document.exitPointerLock(); }
-        else if(!isMobile) renderer.domElement.requestPointerLock();
+        if(ray.intersectObjects(machines).length > 0) { updateUIScale(); document.getElementById('ui').classList.add('active'); }
+        else if(ray.intersectObjects(bjTables).length > 0) { updateUIScale(); document.getElementById('bj-ui').classList.add('active'); }
+        else if(!isMobileMode) renderer.domElement.requestPointerLock();
     });
-    window.addEventListener('mousemove', e => { if(document.pointerLockElement===renderer.domElement) { targetYaw-=e.movementX*0.002; targetPitch-=e.movementY*0.002; } });
-    window.onkeydown = e => { let k=e.key.toLowerCase(); if(k==='w')moveDir.f=true; if(k==='s')moveDir.b=true; if(k==='a')moveDir.l=true; if(k==='d')moveDir.r=true; };
-    window.onkeyup = e => { let k=e.key.toLowerCase(); if(k==='w')moveDir.f=false; if(k==='s')moveDir.b=false; if(k==='a')moveDir.l=false; if(k==='d')moveDir.r=false; };
 
-    function sendChat() { const i=document.getElementById('chat-input'); if(!i.value)return; broadcast({type:'chat', msg:i.value, id:myId}); addChat(i.value, "YOU"); i.value=''; }
-    function addChat(m, id) { const l=document.getElementById('chat-log'); l.innerHTML += `<div><b>${id}:</b> ${m}</div>`; l.scrollTop=l.scrollHeight; }
-    function updateStatus(t) { document.getElementById('multi-status').innerText = t; }
+    window.addEventListener('mousemove', e => { if (document.pointerLockElement === renderer.domElement) { targetYaw -= e.movementX * 0.002; targetPitch -= e.movementY * 0.002; } });
+    window.addEventListener('keydown', e => { const k = e.code; if(k==='KeyW')moveDir.f=true; if(k==='KeyS')moveDir.b=true; if(k==='KeyA')moveDir.l=true; if(k==='KeyD')moveDir.r=true; });
+    window.addEventListener('keyup', e => { const k = e.code; if(k==='KeyW')moveDir.f=false; if(k==='KeyS')moveDir.b=false; if(k==='KeyA')moveDir.l=false; if(k==='KeyD')moveDir.r=false; });
 
-    function initGame() { loadGame(); initPaytable(); shuffleReels(); loop(); }
+    function updateUIScale() { const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
+    function updateCredit() { document.getElementById('credit').innerText = credit; localStorage.setItem('slot_credit', credit); }
+    function closeUI() { document.getElementById('ui').classList.remove('active'); }
+    function closeBJ() { document.getElementById('bj-ui').classList.remove('active'); }
+
+    let bjMyCards = [], bjOppCards = [], bjBet = 10;
+    function bjPreStart() { bjBet = parseInt(document.getElementById('bj-bet-range').value); if(credit < bjBet) return alert("COIN不足"); credit -= bjBet; updateCredit(); document.getElementById('bj-bet-select').style.display = 'none'; document.getElementById('bj-game').style.display = 'flex'; bjStart(); }
+    function bjStart() { bjMyCards = [draw()], bjOppCards = [draw()]; renderBJ(); }
+    function draw() { const v = Math.floor(Math.random()*13)+1; return { v: Math.min(v, 10), label: v }; }
+    function bjHit() { bjMyCards.push(draw()); if(bjScore(bjMyCards)>21) bjEnd("LOSE (BUST)"); else renderBJ(); }
+    function bjStand() { while(bjScore(bjOppCards)<17) bjOppCards.push(draw()); const s1 = bjScore(bjMyCards), s2 = bjScore(bjOppCards); if(s2>21 || s1>s2) bjEnd("WIN", 2); else if(s1===s2) bjEnd("DRAW", 1); else bjEnd("LOSE"); }
+    function bjScore(cards) { return cards.reduce((a, b) => a + b.v, 0); }
+    function renderBJ() { document.getElementById('bj-my-cards').innerHTML = bjMyCards.map(c => `<div class="card">${c.label}</div>`).join(''); document.getElementById('bj-opp-cards').innerHTML = bjOppCards.map(c => `<div class="card">${c.label}</div>`).join(''); document.getElementById('bj-my-score').innerText = bjScore(bjMyCards); }
+    function bjEnd(msg, mult=0) { alert(msg); if(mult>0) { credit += Math.floor(bjBet*mult); updateCredit(); } document.getElementById('bj-bet-select').style.display = 'flex'; document.getElementById('bj-game').style.display = 'none'; }
+
+    function initAll() { 
+        let s = localStorage.getItem('slot_credit'); if(s) credit = parseInt(s); updateCredit();
+        shuffleReels(); 
+        document.getElementById('pay-list').innerHTML = "<b>PAY TABLE</b><hr>" + Object.entries(PAYS).reverse().map(([s, v]) => `<div class="pay-item"><span>${s}</span><span>x${v}</span></div>`).join('');
+        loop(); 
+    }
+
     function loop() {
         requestAnimationFrame(loop);
-        if (!document.getElementById('ui').classList.contains('active') && !document.getElementById('bj-ui').classList.contains('active')) {
-            camera.rotation.set(targetPitch, targetYaw, 0, 'YXZ');
-            let wish = new THREE.Vector3();
-            if(moveDir.f) wish.z-=1; if(moveDir.b) wish.z+=1; if(moveDir.l) wish.x-=1; if(moveDir.r) wish.x+=1;
-            wish.normalize().applyQuaternion(camera.quaternion); wish.y=0;
-            velocity.addScaledVector(wish, 0.02); velocity.multiplyScalar(0.85);
+        if (!document.querySelector('.active')) {
+            currentYaw += (targetYaw - currentYaw) * 0.15;
+            currentPitch += (targetPitch - currentPitch) * 0.15;
+            camera.rotation.set(currentPitch, currentYaw, 0, 'YXZ');
+            
+            let wishDir = new THREE.Vector3();
+            if(isMobileMode) {
+                wishDir.z = joyData.y; wishDir.x = joyData.x;
+            } else {
+                if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1;
+            }
+            wishDir.normalize().applyQuaternion(camera.quaternion); wishDir.y = 0;
+            velocity.addScaledVector(wishDir, 0.02); velocity.multiplyScalar(0.85);
             camera.position.add(velocity);
-            broadcast({type:'move', id:myId, x:camera.position.x, y:camera.position.y-1, z:camera.position.z, ry:camera.rotation.y});
+            
+            if(Math.abs(camera.position.x) > 9.5) camera.position.x = Math.sign(camera.position.x) * 9.5;
+            if(Math.abs(camera.position.z) > 29.5) camera.position.z = Math.sign(camera.position.z) * 29.5;
+            
+            connections.forEach(c => { if(c.open) c.send({ type: 'move', id: myId, name: userName, x: camera.position.x, z: camera.position.z, ry: camera.rotation.y }); });
         }
         renderer.render(scene, camera);
     }
