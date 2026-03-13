@@ -2,16 +2,17 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>8-LINE SLOT - Mobile Pro</title>
+    <title>8-LINE SLOT - Mobile Fix</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        #ui-layer { position: fixed; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.5); padding: 10px; z-index: 1000; border-radius: 8px; font-size: 12px; }
         #mobile-toggle { position: fixed; top: 10px; right: 10px; z-index: 5000; background: #444; color: white; border: 1px solid #fff; padding: 10px; border-radius: 5px; cursor: pointer; }
         #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; z-index: 4500; display: none; touch-action: none; }
-        #joystick-knob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; }
+        #joystick-knob { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; pointer-events: none; }
         #chat-container { position: fixed; bottom: 10px; right: 10px; width: 250px; height: 120px; background: rgba(0,0,0,0.6); display: flex; flex-direction: column; z-index: 4000; border-radius: 5px; }
         #chat-box { flex: 1; overflow-y: auto; color: white; font-size: 11px; padding: 5px; }
         #chat-input { background: #333; border: 1px solid #555; color: white; padding: 5px; outline: none; }
@@ -46,6 +47,7 @@
 <body onload="initAll()">
 
 <div id="three-canvas"></div>
+<div id="ui-layer">Connecting...</div>
 <button id="mobile-toggle" onclick="toggleMobile()">スマホモード: OFF</button>
 <div id="joystick-container"><div id="joystick-knob"></div></div>
 <div id="chat-container">
@@ -248,21 +250,35 @@
     let connections = [];
     const otherPlayers = {};
 
-    peer.on('open', (id) => tryConnectHost());
+    peer.on('open', (id) => {
+        document.getElementById('ui-layer').innerText = "ホストを検索中...";
+        tryConnectHost();
+    });
 
     function tryConnectHost() {
         const conn = peer.connect(hostId);
         setupConn(conn);
-        setTimeout(() => { if (connections.filter(c => c.open).length === 0) startAsHost(); }, 3000);
+        setTimeout(() => { 
+            if (connections.filter(c => c.open).length === 0) {
+                document.getElementById('ui-layer').innerText = "ホストがいません。ホストになります。";
+                startAsHost();
+            }
+        }, 3000);
     }
 
     function startAsHost() {
         const peerHost = new Peer(hostId);
+        peerHost.on('open', () => document.getElementById('ui-layer').innerText = "ホストとして待機中...");
         peerHost.on('connection', setupConn);
     }
 
     function setupConn(c) {
-        c.on('open', () => { if(!connections.find(x=>x.peer===c.peer)) connections.push(c); });
+        c.on('open', () => { 
+            if(!connections.find(x=>x.peer===c.peer)) {
+                connections.push(c);
+                document.getElementById('ui-layer').innerText = "接続済み: " + c.peer;
+            }
+        });
         c.on('data', d => {
             if(d.type === 'move') {
                 if(!otherPlayers[d.id]) {
@@ -279,13 +295,15 @@
                 if(peer.id.includes("HOST")) connections.forEach(conn => { if(conn.open && conn.peer !== c.peer) conn.send(d); });
             }
         });
-        c.on('close', () => { if(otherPlayers[c.peer]) { scene.remove(otherPlayers[c.peer]); delete otherPlayers[c.peer]; } connections = connections.filter(x => x.peer !== c.peer); });
+        c.on('close', () => { 
+            if(otherPlayers[c.peer]) { scene.remove(otherPlayers[c.peer]); delete otherPlayers[c.peer]; } 
+            connections = connections.filter(x => x.peer !== c.peer); 
+        });
     }
 
     function showBubble(id, msg) {
         const target = (id === myId) ? null : otherPlayers[id];
         if(!target) return;
-        const originalTag = target.userData.tag;
         const bubble = createNameTag(msg);
         bubble.position.y = 3.8;
         target.add(bubble);
@@ -311,11 +329,12 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0;
+    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false };
     camera.position.set(0, -1, 15);
 
-    // Joystick & Mobile Logic
-    let joyData = { x: 0, y: 0, active: false };
+    // Joystick & Mobile Touch Logic
+    let joyData = { x: 0, y: 0, active: false, identifier: null };
+    let cameraTouch = { x: 0, y: 0, active: false, identifier: null };
     const joyContainer = document.getElementById('joystick-container');
     const joyKnob = document.getElementById('joystick-knob');
 
@@ -323,40 +342,69 @@
         isMobileMode = !isMobileMode;
         document.getElementById('mobile-toggle').innerText = `スマホモード: ${isMobileMode ? 'ON' : 'OFF'}`;
         joyContainer.style.display = isMobileMode ? 'block' : 'none';
-        if(!isMobileMode) document.exitPointerLock();
     }
 
     window.addEventListener('touchstart', e => {
         if(!isMobileMode || document.querySelector('.active')) return;
-        const touch = e.touches[0];
-        const rect = joyContainer.getBoundingClientRect();
-        const dist = Math.hypot(touch.clientX - (rect.left + 60), touch.clientY - (rect.top + 60));
-        if(dist < 60) joyData.active = true;
-    });
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            const rect = joyContainer.getBoundingClientRect();
+            const dx = touch.clientX - (rect.left + 60);
+            const dy = touch.clientY - (rect.top + 60);
+            const dist = Math.hypot(dx, dy);
+
+            if(!joyData.active && dist < 100) {
+                joyData.active = true;
+                joyData.identifier = touch.identifier;
+            } else if (!cameraTouch.active) {
+                cameraTouch.active = true;
+                cameraTouch.identifier = touch.identifier;
+                cameraTouch.x = touch.clientX;
+                cameraTouch.y = touch.clientY;
+            }
+        }
+    }, {passive: false});
 
     window.addEventListener('touchmove', e => {
         if(!isMobileMode || document.querySelector('.active')) return;
-        const touch = e.touches[0];
-        if(joyData.active) {
-            const rect = joyContainer.getBoundingClientRect();
-            let dx = touch.clientX - (rect.left + 60);
-            let dy = touch.clientY - (rect.top + 60);
-            const angle = Math.atan2(dy, dx);
-            const dist = Math.min(Math.hypot(dx, dy), 40);
-            joyData.x = (dist / 40) * Math.cos(angle);
-            joyData.y = (dist / 40) * Math.sin(angle);
-            joyKnob.style.transform = `translate(${joyData.x * 40}px, ${joyData.y * 40}px)`;
-        } else {
-            // Camera move
-            targetYaw -= e.changedTouches[0].pageX * 0.00002; // 感度調整
-            targetPitch -= e.changedTouches[0].pageY * 0.00002;
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if(joyData.active && touch.identifier === joyData.identifier) {
+                const rect = joyContainer.getBoundingClientRect();
+                let dx = touch.clientX - (rect.left + 60);
+                let dy = touch.clientY - (rect.top + 60);
+                const angle = Math.atan2(dy, dx);
+                const dist = Math.min(Math.hypot(dx, dy), 40);
+                joyData.x = (dist / 40) * Math.cos(angle);
+                joyData.y = (dist / 40) * Math.sin(angle);
+                joyKnob.style.transform = `translate(${joyData.x * 40}px, ${joyData.y * 40}px)`;
+            } else if (cameraTouch.active && touch.identifier === cameraTouch.identifier) {
+                const moveX = touch.clientX - cameraTouch.x;
+                const moveY = touch.clientY - cameraTouch.y;
+                targetYaw -= moveX * 0.005;
+                targetPitch -= moveY * 0.005;
+                cameraTouch.x = touch.clientX;
+                cameraTouch.y = touch.clientY;
+            }
+        }
+    }, {passive: false});
+
+    window.addEventListener('touchend', e => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joyData.identifier) {
+                joyData.active = false;
+                joyData.x = 0; joyData.y = 0;
+                joyKnob.style.transform = 'translate(0,0)';
+            } else if (touch.identifier === cameraTouch.identifier) {
+                cameraTouch.active = false;
+            }
         }
     });
 
-    window.addEventListener('touchend', () => { joyData.active = false; joyData.x = 0; joyData.y = 0; joyKnob.style.transform = 'translate(0,0)'; });
-
     document.addEventListener('mousedown', (e) => {
-        if(document.querySelector('.active') || e.target.id === 'chat-input' || e.target.id === 'mobile-toggle') return;
+        if(document.querySelector('.active') || e.target.id === 'chat-input' || e.target.closest('#mobile-toggle')) return;
         const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0,0), camera);
         if(ray.intersectObjects(machines).length > 0) { updateUIScale(); document.getElementById('ui').classList.add('active'); }
         else if(ray.intersectObjects(bjTables).length > 0) { updateUIScale(); document.getElementById('bj-ui').classList.add('active'); }
@@ -371,16 +419,6 @@
     function updateCredit() { document.getElementById('credit').innerText = credit; localStorage.setItem('slot_credit', credit); }
     function closeUI() { document.getElementById('ui').classList.remove('active'); }
     function closeBJ() { document.getElementById('bj-ui').classList.remove('active'); }
-
-    let bjMyCards = [], bjOppCards = [], bjBet = 10;
-    function bjPreStart() { bjBet = parseInt(document.getElementById('bj-bet-range').value); if(credit < bjBet) return alert("COIN不足"); credit -= bjBet; updateCredit(); document.getElementById('bj-bet-select').style.display = 'none'; document.getElementById('bj-game').style.display = 'flex'; bjStart(); }
-    function bjStart() { bjMyCards = [draw()], bjOppCards = [draw()]; renderBJ(); }
-    function draw() { const v = Math.floor(Math.random()*13)+1; return { v: Math.min(v, 10), label: v }; }
-    function bjHit() { bjMyCards.push(draw()); if(bjScore(bjMyCards)>21) bjEnd("LOSE (BUST)"); else renderBJ(); }
-    function bjStand() { while(bjScore(bjOppCards)<17) bjOppCards.push(draw()); const s1 = bjScore(bjMyCards), s2 = bjScore(bjOppCards); if(s2>21 || s1>s2) bjEnd("WIN", 2); else if(s1===s2) bjEnd("DRAW", 1); else bjEnd("LOSE"); }
-    function bjScore(cards) { return cards.reduce((a, b) => a + b.v, 0); }
-    function renderBJ() { document.getElementById('bj-my-cards').innerHTML = bjMyCards.map(c => `<div class="card">${c.label}</div>`).join(''); document.getElementById('bj-opp-cards').innerHTML = bjOppCards.map(c => `<div class="card">${c.label}</div>`).join(''); document.getElementById('bj-my-score').innerText = bjScore(bjMyCards); }
-    function bjEnd(msg, mult=0) { alert(msg); if(mult>0) { credit += Math.floor(bjBet*mult); updateCredit(); } document.getElementById('bj-bet-select').style.display = 'flex'; document.getElementById('bj-game').style.display = 'none'; }
 
     function initAll() { 
         let s = localStorage.getItem('slot_credit'); if(s) credit = parseInt(s); updateCredit();
