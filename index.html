@@ -7,8 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --gold: #ffd700; --fever: #ff0000; }
-        /* 背景色を少し明るく */
-        body { margin: 0; overflow: hidden; background: #444; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
         #three-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
         #mobile-toggle { position: fixed; top: 20px; left: 20px; z-index: 2000; padding: 10px 20px; background: #444; color: white; border: 2px solid #fff; border-radius: 5px; cursor: pointer; }
         #joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; z-index: 2000; display: none; touch-action: none; }
@@ -20,15 +19,13 @@
         .slot-container, .bj-container { width: 480px; height: 780px; background: #222; border: 10px solid #444; border-radius: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 0 50px rgba(0,0,0,0.8); position: relative; }
         .bj-container { background: #0b2e0b; border-color: #265426; }
         
-        .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; pointer-events: auto; }
+        .paytable { position: absolute; right: 100%; top: 50px; margin-right: 20px; width: 160px; background: rgba(17, 17, 17, 0.95); border: 4px solid #444; border-radius: 10px; padding: 15px; color: gold; font-size: 1rem; }
         @media (max-width: 850px) { .paytable { display: none; } }
         .pay-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 5px 0; }
-
         #win-effect-container { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; pointer-events: none; text-align: center; width: 100%; }
         .win-pop { color: #ff0000; font-size: 4rem; font-weight: bold; text-shadow: 0 0 20px #fff, 0 0 40px gold; animation: popIn 0.5s forwards, fadeOut 0.5s 2.5s forwards; margin: 10px; }
         @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0; } }
-        
         .lcd { width: 85%; height: 110px; background: #000; margin-top: 25px; border: 4px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
         #fever-label { color: #f00; font-size: 1.6rem; visibility: hidden; animation: blink 0.4s infinite alternate; }
         #status-text { color: #f00; font-size: 2rem; }
@@ -42,10 +39,11 @@
         .stop-btn { width: 95px; height: 95px; border-radius: 50%; background: #ccc; border: 6px solid #999; font-weight: bold; cursor: pointer; }
         #crosshair { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); z-index: 5; pointer-events: none; opacity: 0.8; }
 
-        .bj-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; gap: 15px; }
-        .card-row { display: flex; gap: 5px; min-height: 80px; margin: 10px 0; }
-        .card { width: 50px; height: 75px; background: white; border-radius: 5px; color: black; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 1px solid #999; }
-        .bj-btn { padding: 12px 24px; font-size: 1rem; cursor: pointer; background: #444; color: #fff; border: 2px solid #888; border-radius: 5px; width: 220px; }
+        /* BJ Style */
+        .bj-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-around; padding: 20px; box-sizing: border-box; }
+        .card-row { display: flex; gap: 5px; min-height: 80px; }
+        .card { width: 50px; height: 75px; background: white; border-radius: 5px; color: black; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+        .bj-btn { padding: 10px 20px; font-size: 1rem; cursor: pointer; background: #444; color: #fff; border: 2px solid #888; border-radius: 5px; }
         .bj-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .fever-btn { background: #f00; border-color: #ff0; animation: blink 0.5s infinite alternate; }
     </style>
@@ -60,17 +58,8 @@
 <div id="multi-status">Initializing...</div>
 
 <div id="ui">
-    <div class="slot-container">
-        <div class="paytable">
-            <div class="pay-item"><span>7️⃣7️⃣7️⃣</span><span>9x</span></div>
-            <div class="pay-item"><span>⭐⭐⭐</span><span>8x</span></div>
-            <div class="pay-item"><span>💎💎💎</span><span>7x</span></div>
-            <div class="pay-item"><span>🎰🎰🎰</span><span>6x</span></div>
-            <div class="pay-item"><span>🔔🔔🔔</span><span>5x</span></div>
-            <div class="pay-item"><span>🍉🍉🍉</span><span>4x</span></div>
-            <div class="pay-item"><span>🍇🍇🍇</span><span>3x</span></div>
-            <div class="pay-item"><span>🍒🍒🍒</span><span>2x</span></div>
-        </div>
+    <div class="slot-container" id="main-container">
+        <div class="paytable" id="pay-list"></div>
         <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
             <button onclick="resetGame()" style="cursor:pointer; background: #822; color: white; border: none; padding: 5px 15px; border-radius: 5px;">RESET</button>
             <button onclick="closeUI()" style="cursor:pointer; background: #444; color: white; border: none; padding: 5px 15px; border-radius: 5px;">EXIT</button>
@@ -97,13 +86,12 @@
 
 <div id="bj-ui">
     <div class="bj-container">
-        <div style="width:100%; display:flex; justify-content:space-between; padding:10px; box-sizing:border-box;">
-            <button id="bj-back-to-mode" onclick="resetBJMode()" style="cursor:pointer; background: #265426; color: white; border: 1px solid #fff; padding: 5px 15px; border-radius: 5px;">MODE CHANGE</button>
+        <div style="width:100%; display:flex; justify-content:flex-end; padding:10px; box-sizing:border-box;">
             <button onclick="closeBJ()" style="cursor:pointer; background: #444; color: white; border: none; padding: 5px 15px; border-radius: 5px;">EXIT</button>
         </div>
         
         <div id="bj-mode-select" class="bj-screen">
-            <div style="color:gold; font-size:2rem; margin-bottom:10px;">BLACKJACK</div>
+            <div style="color:gold; font-size:2rem;">BLACKJACK</div>
             <button class="bj-btn" onclick="setBJMode('cpu')">CPUと対戦</button>
             <button class="bj-btn" onclick="setBJMode('multi')">同じ部屋の人と対戦</button>
         </div>
@@ -120,7 +108,7 @@
             <button id="bj-start-btn" class="bj-btn" onclick="bjPreStart()">開始</button>
         </div>
 
-        <div id="bj-game" class="bj-screen" style="display:none; justify-content:space-around;">
+        <div id="bj-game" class="bj-screen" style="display:none;">
             <div id="bj-fever-info" style="color:red; font-weight:bold;"></div>
             <div id="bj-opp-info" style="color:white; font-size:0.8rem;">Opponent: <span id="bj-opp-score">0</span></div>
             <div class="card-row" id="bj-opp-cards"></div>
@@ -129,11 +117,11 @@
             <div id="bj-my-info" style="color:gold; font-size:1.2rem;">YOU: <span id="bj-my-score">0</span></div>
             
             <div id="bj-controls" style="display:flex; gap:10px;">
-                <button id="bj-hit" class="bj-btn" style="width:100px;" onclick="bjHit()">HIT</button>
-                <button id="bj-stand" class="bj-btn" style="width:100px;" onclick="bjStand()">STAND</button>
+                <button id="bj-hit" class="bj-btn" onclick="bjHit()">HIT</button>
+                <button id="bj-stand" class="bj-btn" onclick="bjStand()">STAND</button>
             </div>
             
-            <div id="bj-fever-choice" style="display:none; flex-direction:column; gap:10px; align-items:center;">
+            <div id="bj-fever-choice" style="display:none; flex-direction:column; gap:10px;">
                 <div style="color:yellow;">21ぴったり！</div>
                 <button class="bj-btn" onclick="bjEndWin()">そのまま勝利(通常配当)</button>
                 <button class="bj-btn fever-btn" onclick="bjEnterFever()">フィーバー突入(次勝てば10倍！)</button>
@@ -143,6 +131,7 @@
 </div>
 
 <script>
+    // --- スロットロジック ---
     const PAYS = { '7️⃣': 9, '⭐': 8, '💎': 7, '🎰': 6, '🔔': 5, '🍉': 4, '🍇': 3, '🍒': 2 };
     let REELS_DATA = [[], [], []], credit = 100, bet = 3, pos = [0,0,0], speed = [0,0,0], stopping = [false,false,false], targetPos = [0,0,0];
     let isFever = false, isSuperFever = false, feverRounds = 0;
@@ -150,24 +139,10 @@
 
     function playTone(freq, type, dur, vol=0.1) { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur); }
     const sounds = { stop: () => playTone(440, 'sine', 0.1), winLine: () => playTone(880, 'square', 0.2), coin: () => playTone(1200 + Math.random()*400, 'sine', 0.1, 0.05), fever: () => { playTone(523, 'triangle', 0.3); setTimeout(()=>playTone(659, 'triangle', 0.3), 150); } };
+    function saveGame() { localStorage.setItem('slot_credit', credit); document.querySelectorAll('.bj-coin-disp').forEach(e=>e.innerText=credit); }
+    function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) { credit = parseInt(s); document.getElementById('credit').innerText = credit; } saveGame(); }
+    function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); document.getElementById('credit').innerText = credit; } }
     
-    function saveGame() { 
-        localStorage.setItem('slot_credit', credit); 
-        document.querySelectorAll('.bj-coin-disp').forEach(e=>e.innerText=credit); 
-        const c = document.getElementById('credit'); if(c) c.innerText = credit; 
-    }
-    function loadGame() { let s = localStorage.getItem('slot_credit'); if(s) { credit = parseInt(s); } saveGame(); }
-    function resetGame() { if(confirm("RESET?")) { credit = 100; saveGame(); } }
-    
-    function showPopup(text, color="gold") {
-        const container = document.getElementById('win-effect-container');
-        const div = document.createElement('div');
-        div.className = 'win-pop';
-        div.style.color = color;
-        div.innerText = text;
-        container.appendChild(div);
-    }
-
     function shuffleReels() { 
         const normBase = ['🍒','🍒','🍒','🍒','🍇','🍇','🍉','🔔','💎','🍉']; 
         const feverBase = ['7️⃣','7️⃣','7️⃣','⭐','⭐','🎰','🎰','💎','🍉','🍉']; 
@@ -181,13 +156,12 @@
     
     function changeBet(n) { if(speed.some(s=>s>0)) return; bet = Math.max(1, Math.min(100, credit, bet+n)); document.getElementById('bet-val').innerText = bet; }
     function maxBet() { changeBet(100); }
-
     function start() { 
         if(speed.some(s=>s>0) || credit < bet) return; 
         if(audioCtx.state === 'suspended') audioCtx.resume(); 
         document.getElementById('win-effect-container').innerHTML = ''; 
         if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; }
-        shuffleReels(); credit -= bet; saveGame();
+        shuffleReels(); credit -= bet; saveGame(); document.getElementById('credit').innerText = credit; 
         let lbl = isSuperFever ? "SUPER" : "FEVER";
         document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "SPINNING...";
         speed = [55, 55, 55]; stopping = [false,false,false]; 
@@ -204,22 +178,13 @@
         const grid = [0,1,2].map(i => { let off = Math.abs(Math.round(pos[i]/80)); return [REELS_DATA[i][off%20], REELS_DATA[i][(off+1)%20], REELS_DATA[i][(off+2)%20]]; }); 
         const lines = [[grid[0][1], grid[1][1], grid[2][1]], [grid[0][0], grid[1][0], grid[2][0]], [grid[0][2], grid[1][2], grid[2][2]], [grid[0][0], grid[1][1], grid[2][2]], [grid[0][2], grid[1][1], grid[2][0]], [grid[0][0], grid[0][1], grid[0][2]], [grid[1][0], grid[1][1], grid[1][2]], [grid[2][0], grid[2][1], grid[2][2]]]; 
         let winCnt = 0, mults = []; lines.forEach(l => { if(l[0]===l[1] && l[1]===l[2]) { winCnt++; mults.push(PAYS[l[0]]); } }); 
-        if(mults.length > 0) { let currentTotal = 1; for(let i=0; i<mults.length; i++) { currentTotal *= mults[i]; if(winCnt >= 2) { showPopup(i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); } } showPopup(`合計 ${currentTotal}倍！！`, "gold"); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); saveGame(); if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } } else { if(isFever || isSuperFever) feverRounds--; } if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; saveGame(); 
+        if(mults.length > 0) { const container = document.getElementById('win-effect-container'); let currentTotal = 1; for(let i=0; i<mults.length; i++) { currentTotal *= mults[i]; if(winCnt >= 2) { const div = document.createElement('div'); div.className = 'win-pop'; div.innerText = i === 0 ? `${mults[i]}倍！` : `× ${mults[i]}倍！`; container.appendChild(div); sounds.winLine(); await new Promise(r => setTimeout(r, 600)); } } const finalDiv = document.createElement('div'); finalDiv.className = 'win-pop'; finalDiv.style.fontSize = '6rem'; finalDiv.style.color = 'gold'; finalDiv.innerText = `合計 ${currentTotal}倍！！`; container.appendChild(finalDiv); sounds.winLine(); sounds.fever(); credit += (bet * currentTotal); document.getElementById('credit').innerText = credit; saveGame(); if(isSuperFever) { if(winCnt >= 2) feverRounds = 2; else feverRounds--; } else { if(winCnt >= 2) { isSuperFever = true; isFever = false; feverRounds = 2; document.getElementById('fever-label').innerText = "🔥 SUPER FEVER 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } else { isFever = true; feverRounds = 3; document.getElementById('fever-label').innerText = "🔥 FEVER TIME 🔥"; document.getElementById('fever-label').style.visibility = 'visible'; } } } else { if(isFever || isSuperFever) feverRounds--; } if(feverRounds <= 0) { isFever = false; isSuperFever = false; document.getElementById('fever-label').style.visibility = 'hidden'; } let lbl = isSuperFever ? "SUPER" : "FEVER"; document.getElementById('status-text').innerText = (isFever || isSuperFever) ? `${lbl} ${feverRounds}` : "RETRY"; saveGame(); 
     }
 
-    let bjMode = 'cpu', bjBet = 10, bjFeverMult = 1, bjActive = false;
+    // --- ブラックジャックロジック ---
+    let bjMode = 'cpu', bjState = 'bet', bjBet = 10, bjFeverMult = 1;
     let myCards = [], oppCards = [], bjDeck = [];
     let isBJMultiWaiting = false;
-
-    function resetBJMode() {
-        if(bjActive) return; 
-        document.getElementById('bj-game').style.display = 'none';
-        document.getElementById('bj-bet-select').style.display = 'none';
-        document.getElementById('bj-wait').style.display = 'none';
-        document.getElementById('bj-mode-select').style.display = 'flex';
-        document.getElementById('bj-back-to-mode').style.display = 'block';
-        isBJMultiWaiting = false;
-    }
 
     function setBJMode(m) {
         bjMode = m;
@@ -235,7 +200,6 @@
     function showBJBet() {
         document.getElementById('bj-wait').style.display = 'none';
         document.getElementById('bj-bet-select').style.display = 'flex';
-        document.getElementById('bj-back-to-mode').style.display = 'block';
         document.getElementById('bj-start-btn').style.display = (credit >= 1) ? 'block' : 'none';
     }
     function bjPreStart() {
@@ -245,18 +209,13 @@
         bjStart();
     }
     function bjStart() {
-        bjActive = true;
-        document.getElementById('win-effect-container').innerHTML = ''; 
         document.getElementById('bj-bet-select').style.display = 'none';
-        document.getElementById('bj-back-to-mode').style.display = 'none'; 
         document.getElementById('bj-game').style.display = 'flex';
         document.getElementById('bj-fever-choice').style.display = 'none';
         document.getElementById('bj-controls').style.display = 'flex';
         document.getElementById('bj-fever-info').innerText = bjFeverMult > 1 ? `FEVER x${bjFeverMult}!!` : "";
-        
         myCards = []; oppCards = [];
         bjDeck = Array.from({length: 52}, (_, i) => ({v: (i%13)+1, s: ['♠','♥','♦','♣'][Math.floor(i/13)]})).sort(()=>Math.random()-0.5);
-        
         updateBJDisplay();
         broadcastBJ({type: 'bj_play', cards: myCards, score: 0});
     }
@@ -271,20 +230,15 @@
         const score = getBJScore(myCards);
         updateBJDisplay();
         broadcastBJ({type: 'bj_play', cards: myCards, score: score});
-        if(score > 21) {
-            document.getElementById('bj-controls').style.display = 'none';
-            bjLose();
-        }
+        if(score > 21) bjLose();
         else if(score === 21) {
             document.getElementById('bj-controls').style.display = 'none';
             document.getElementById('bj-fever-choice').style.display = 'flex';
         }
     }
     function bjStand() {
-        document.getElementById('bj-controls').style.display = 'none'; 
         if(bjMode === 'cpu') {
             while(getBJScore(oppCards) < 17) oppCards.push(bjDeck.pop());
-            updateBJDisplay();
             const myS = getBJScore(myCards), oppS = getBJScore(oppCards);
             if(oppS > 21 || myS > oppS) bjWin();
             else if(myS === oppS) bjDraw();
@@ -296,76 +250,60 @@
     function bjWin() {
         let winAmount = bjBet * 2 * bjFeverMult;
         credit += winAmount; bjFeverMult = 1;
-        showPopup(`勝利！ ${winAmount}枚獲得`, "gold");
-        bjActive = false;
-        setTimeout(bjEnd, 2000);
+        alert("勝利！ " + winAmount + "枚獲得");
+        bjEnd();
     }
-    function bjEndWin() { 
-        document.getElementById('bj-fever-choice').style.display = 'none';
-        bjWin(); 
-    }
+    function bjEndWin() { bjWin(); }
     function bjEnterFever() {
-        document.getElementById('bj-fever-choice').style.display = 'none';
         bjFeverMult *= 10;
-        showPopup("FEVER 突入！", "red");
-        setTimeout(bjStart, 1500);
+        alert("FEVER突入！次勝てば配当" + (bjFeverMult*2) + "倍！");
+        bjStart();
     }
-    function bjLose() {
-        showPopup("敗北！", "red");
-        bjFeverMult = 1;
-        bjActive = false;
-        setTimeout(bjEnd, 2000);
-    }
-    function bjDraw() {
-        credit += bjBet;
-        showPopup("引き分け", "white");
-        bjActive = false;
-        setTimeout(bjEnd, 2000);
-    }
-    function bjEnd() {
-        saveGame();
-        document.getElementById('bj-game').style.display = 'none';
-        showBJBet();
-    }
+    function bjLose() { alert("敗北..."); bjFeverMult = 1; bjEnd(); }
+    function bjDraw() { credit += bjBet; alert("引き分け"); bjEnd(); }
+    function bjEnd() { saveGame(); document.getElementById('bj-game').style.display = 'none'; showBJBet(); }
     function updateBJDisplay() {
         const render = (id, cards) => {
             document.getElementById(id).innerHTML = cards.map(c => `<div class="card" style="color:${(c.s==='♥'||c.s==='♦')?'red':'black'}">${c.v===1?'A':(c.v>10?['J','Q','K'][c.v-11]:c.v)}<br>${c.s}</div>`).join('');
         };
-        render('bj-my-cards', myCards);
-        render('bj-opp-cards', oppCards);
+        render('bj-my-cards', myCards); render('bj-opp-cards', oppCards);
         document.getElementById('bj-my-score').innerText = getBJScore(myCards);
         document.getElementById('bj-opp-score').innerText = getBJScore(oppCards);
     }
 
-    // --- 【修正】3D 空間 (灰色多め・明るく設定) ---
+    // --- 3D 空間 ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x888888); // 背景を灰色に
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.getElementById('three-canvas').appendChild(renderer.domElement);
-    
-    // 照明を大幅に強化して明るくする
-    scene.add(new THREE.AmbientLight(0xffffff, 1.0)); 
-    const dl = new THREE.DirectionalLight(0xffffff, 1.2); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
-    
-    // 床・天井を明るい灰色に
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0xaaaaaa })); floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ color: 0xbbbbbb })); ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
-    
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(5, 10, 7); dl.castShadow = true; scene.add(dl);
+
+    // テクスチャ生成
+    function createTexture(c1, c2) {
+        const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = c1; ctx.fillRect(0,0,256,256);
+        ctx.strokeStyle = c2; ctx.lineWidth = 10; ctx.strokeRect(0,0,256,256);
+        const tex = new THREE.CanvasTexture(canvas); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(15, 30);
+        return tex;
+    }
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ map: createTexture('#333','#444') }));
+    floor.rotation.x = -Math.PI/2; floor.position.y = -4; floor.receiveShadow = true; scene.add(floor);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(30, 60), new THREE.MeshStandardMaterial({ map: createTexture('#222','#111') }));
+    ceil.rotation.x = Math.PI/2; ceil.position.y = 5; scene.add(ceil);
+
     const machines = [], bjTables = [];
     function createMachine(x, z, color, isBJ) {
-        // マシン自体の色も少し明るく設定
         const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 1.2), new THREE.MeshStandardMaterial({ color: color }));
         body.position.set(x, -2, z); scene.add(body);
         if(isBJ) bjTables.push(body); else machines.push(body);
     }
-    for(let i=-2; i<=2; i++) { 
-        createMachine(-8.5, i*8, 0x555555, false); // スロット(灰色)
-        createMachine(8.5, i*8, 0x668866, true);   // BJ(明るめの緑/灰)
-    }
+    for(let i=-2; i<=2; i++) { createMachine(-8.5, i*8, 0x111111, false); createMachine(8.5, i*8, 0x073b07, true); }
 
+    // --- P2P マルチプレイ ---
     let myName = prompt("名前を入力してください", "Player") || "Player";
     let roomNumInput = prompt("部屋番号", "777") || "777";
     const myId = "P-" + roomNumInput + "-" + Math.floor(Math.random() * 9999);
@@ -391,13 +329,14 @@
     function broadcast(data) { connections.forEach(c => { if(c.open) c.send(data); }); }
     function broadcastBJ(data) { data.id = myId; broadcast(data); }
 
-    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0, isMobile = false;
+    // --- 操作系 ---
+    let targetPitch = 0, targetYaw = 0, currentPitch = 0, currentYaw = 0, velocity = new THREE.Vector3(), moveDir = { f: false, b: false, l: false, r: false }, bobTime = 0, isMobile = false, joyDir = {x:0, y:0};
     camera.position.set(0, -1, 15);
     function updateUIScale() { const s = Math.min(window.innerWidth / 500, window.innerHeight / 820, 1); document.documentElement.style.setProperty('--ui-scale', s); }
     window.addEventListener('resize', updateUIScale);
     function toggleMobile() { isMobile = !isMobile; document.getElementById('joystick-container').style.display = isMobile ? 'block' : 'none'; }
     function closeUI(){ document.getElementById('ui').classList.remove('active'); }
-    function closeBJ(){ if(bjActive) return; document.getElementById('bj-ui').classList.remove('active'); }
+    function closeBJ(){ document.getElementById('bj-ui').classList.remove('active'); }
     
     document.addEventListener('mousedown', () => {
         if(document.getElementById('ui').classList.contains('active') || document.getElementById('bj-ui').classList.contains('active')) return;
@@ -418,7 +357,7 @@
             currentYaw += (targetYaw - currentYaw) * 0.15; currentPitch += (targetPitch - currentPitch) * 0.15;
             camera.rotation.set(currentPitch, currentYaw, 0, 'YXZ');
             let wishDir = new THREE.Vector3();
-            if(!isMobile) { if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1; }
+            if(isMobile) { wishDir.x = joyDir.x; wishDir.z = joyDir.y; } else { if(moveDir.f) wishDir.z -= 1; if(moveDir.b) wishDir.z += 1; if(moveDir.l) wishDir.x -= 1; if(moveDir.r) wishDir.x += 1; }
             wishDir.normalize().applyQuaternion(camera.quaternion); wishDir.y = 0;
             velocity.addScaledVector(wishDir, 0.02); velocity.multiplyScalar(0.85);
             if (velocity.length() > 0.01) { bobTime += 0.15; camera.position.y = -1 + Math.sin(bobTime) * 0.06; }
